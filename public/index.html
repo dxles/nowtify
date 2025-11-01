@@ -32,6 +32,9 @@ body{
     pointer-events: auto !important;    
     z-index: 999999;    
     transition: opacity 0.5s ease-in-out;
+    /* Başlangıçta görünür ve üstte */
+    display: flex; 
+    flex-direction: column;
 }
 #login-container * {
     pointer-events: auto !important;
@@ -50,7 +53,8 @@ body{
 }
 
 #main {
-    display: none; /* Başlangıçta gizli */
+    /* KRİTİK DÜZELTME: Başlangıçta gizli tut, JS ile açılacak */
+    display: none; 
     position: relative;
     z-index: 10;
     padding: 40px;
@@ -59,7 +63,7 @@ body{
     align-items: center;
     justify-content: center;
     text-align: center;
-    display: flex; 
+    /* JS ile açıldığında flex olarak belirlenecek */
     flex-direction: column;
 }
 
@@ -157,6 +161,7 @@ body{
 
 /* Login Ekranı Stilleri */
 #login-container {
+    /* Ekranı ortalamak için Flex ayarları */
     position: fixed;
     top: 0;
     left: 0;
@@ -317,7 +322,7 @@ function onYouTubeIframeAPIReady() {
             'autoplay': 1,
             'controls': 0,
             'enablejsapi': 1,
-            // KRİTİK: Güvenlik (Origin) ayarı
+            // KRİTİK: Origin hatasını çözmek için gereklidir
             'origin': window.location.origin, 
             'mute': 1 // Tarayıcı kısıtlamaları için sessiz başlat
         },
@@ -343,7 +348,7 @@ function onPlayerStateChange(event) {
 }
 
 // ------------------------------------------------------------------
-// SOCKET.IO İstemci Kodu (HATA ÇÖZÜMÜ BURADA)
+// SOCKET.IO İstemci Kodu
 // ------------------------------------------------------------------
 
 const socket = io();
@@ -356,7 +361,7 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
     duration = durationMs;
     
     // ----------------------------------------------------
-    // KRİTİK HATA ÇÖZÜMÜ: trackTitle'ın undefined olma kontrolü (split hatası çözüldü)
+    // KRİTİK HATA ÇÖZÜMÜ: split() hatası çözüldü
     // ----------------------------------------------------
     let artist = '';
     let title = trackTitle || 'Şu an bir şey çalmıyor...'; 
@@ -477,26 +482,32 @@ async function fetchTrack(t){
 }
 
 // ------------------------------------------------------------------
-// PENCERE YÜKLENME (LOGIN) KISMI
+// PENCERE YÜKLENME (LOGIN) KISMI - KRİTİK EKRAN DEĞİŞTİRME DÜZELTİLDİ
 // ------------------------------------------------------------------
 
 window.onload = async ()=>{
+    // URL'deki hash'i okur
     const hash = window.location.hash.substring(1); 
     const params = new URLSearchParams(hash);
     token = params.get('access_token');
     
     if (token) {
+        // Token okundu, URL'den tokeni temizle
         window.location.hash = ''; 
     }
     
     if(token){
         // Başarılı giriş: Ekranları değiştir
         loginContainer.style.opacity='0';
+        
+        // KRİTİK DÜZELTME: Login container'ı gizle ve main'i göster.
         setTimeout(()=>{
             loginContainer.style.display='none';
+            main.style.display='flex'; 
         }, 500);
-        main.style.display='flex'; 
+        
     } else {
+        // Token yoksa ana ekranı gizli tut (Login ekranı zaten CSS ile gösteriliyor)
         main.style.display='none';
     }
 
