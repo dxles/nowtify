@@ -1,8 +1,6 @@
-// Server.js - SON VE KESİN ÇÖZÜM
+// Server.js - SON VE KESİN ÇÖZÜM (HATA TESPİTİ LOG'U EKLENDİ)
 
-// .env.local dosyasını yüklüyoruz
 import * as dotenv from 'dotenv';
-// KRİTİK DÜZELTME: Doğru yolu kullanarak .env.local dosyasını yüklüyoruz.
 dotenv.config({ path: `${process.cwd()}/.env.local` });    
 
 import express from 'express';
@@ -15,38 +13,22 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// __dirname ve __filename simülasyonu
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Express setup
 const app = express();
 const server = http.createServer(app);
 const io = new SocketIO(server);
 
 app.use(cookieParser()); 
-
-// KRİTİK DÜZELTME: index.html ve diğer statik dosyaların public klasöründen sunulmasını sağlar.
 app.use(express.static(path.join(__dirname, 'public')));    
 
-// Supabase setup
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-if (!supabaseKey) {
-    console.warn('UYARI: Supabase Key eksik veya hatalı.');
-}
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Spotify setup
+// API Anahtarları
 const clientId = process.env.SPOTIFY_CLIENT_ID;
 const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 const redirectUri = process.env.SPOTIFY_REDIRECT_URI;    
-
-// YouTube setup
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-// Global durum değişkenleri
 let lastTrackUri = null;
 let currentVideoId = null;
 let currentTrackTitle = null;
@@ -57,7 +39,6 @@ const stateKey = 'spotify_auth_state';
  * YouTube'da şarkıyı arama fonksiyonu
  */
 async function searchYoutube(query) {
-    // KRİTİK DÜZELTME: Gerçek YouTube API endpointi kullanılıyor.
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${youtubeApiKey}&maxResults=1`;
 
     if (!youtubeApiKey) {
@@ -74,9 +55,7 @@ async function searchYoutube(query) {
             return null;
         }
 
-        // İlk sonucu al ve video ID'sini döndür
         if (data.items && data.items.length > 0) {
-            // Sadece video türündekini al
             const videoItem = data.items.find(item => item.id.kind === 'youtube#video');
             return videoItem ? videoItem.id.videoId : null;
         }
@@ -87,10 +66,7 @@ async function searchYoutube(query) {
     }
 }
 
-
-/**
- * Spotify yetkilendirme akışı için rastgele string üretme
- */
+// ... (Geri kalan AUTH kodları aynı) ...
 const generateRandomString = (length) => {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -100,7 +76,6 @@ const generateRandomString = (length) => {
     }
     return text;
 };
-
 
 app.get('/login', (req, res) => {
     if (!clientId || !clientSecret || !redirectUri) {
@@ -112,7 +87,6 @@ app.get('/login', (req, res) => {
 
     const scope = 'user-read-playback-state';
 
-    // KRİTİK DÜZELTME: Gerçek Spotify yetkilendirme URL'i kullanılıyor.
     res.redirect('https://accounts.spotify.com/authorize?' +
         querystring.stringify({
             response_type: 'code',
@@ -138,7 +112,6 @@ app.get('/callback', async (req, res) => {
         res.clearCookie(stateKey);
         const authOptions = {
             method: 'POST',
-            // KRİTİK DÜZELTME: Node.js Buffer'ı ile Basic Auth oluşturma
             headers: {
                 'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64')),
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -151,7 +124,6 @@ app.get('/callback', async (req, res) => {
         };
 
         try {
-            // KRİTİK DÜZELTME: Gerçek Spotify token URL'i kullanılıyor.
             const tokenRes = await fetch('https://accounts.spotify.com/api/token', authOptions);
             const tokenData = await tokenRes.json();
             
@@ -162,7 +134,6 @@ app.get('/callback', async (req, res) => {
                 throw new Error('No access token received.');
             }
 
-            // Başarılı. Access token ile ana sayfaya yönlendir. (Token HASH içinde)
             res.redirect('/#' + querystring.stringify({
                 access_token: accessToken,
                 expires_in: tokenData.expires_in 
@@ -176,10 +147,10 @@ app.get('/callback', async (req, res) => {
         }
     }
 });
-
+// ... (Geri kalan AUTH kodları sonu) ...
 
 /**
- * SOCKET.IO Olay Yönetimi (KRİTİK BÖLÜM - Şarkı Değişim Gecikmesi Çözüldü)
+ * SOCKET.IO Olay Yönetimi (Şarkı Değişim Gecikmesi Çözüldü)
  */
 io.on('connection', (socket) => {
     console.log('Yeni bir istemci bağlandı.');
@@ -191,6 +162,13 @@ io.on('connection', (socket) => {
     // İstemciden Spotify durum güncellemelerini al
     socket.on('statusUpdate', async (data) => {
         
+        // KRİTİK LOG: Veri sunucuya ulaşıyor mu?
+        if (data && data.item) {
+            console.log(`[SUNUCU LOG] Spotify verisi alındı. Şarkı: ${data.item.name}.`);
+        } else {
+            console.log('[SUNUCU LOG] Spotify verisi alındı: Çalmıyor/Boş.');
+        }
+
         // Şarkı çalma yoksa veya hata varsa
         if (!data || !data.item) {
             io.emit('syncCommand', { command: 'stop' });
@@ -205,7 +183,6 @@ io.on('connection', (socket) => {
         const isPlaying = data.is_playing;
         const progressMs = data.progress_ms;
         const trackUri = track.uri;
-        // Sanatçı ve Şarkı Adını birleştirme
         const trackTitle = `${track.artists.map(a=>a.name).join(', ')} - ${track.name}`; 
         const albumImgUrl = track.album.images[0].url;    
         const durationMs = track.duration_ms;
@@ -213,10 +190,6 @@ io.on('connection', (socket) => {
         // YENİ ŞARKI KONTROLÜ
         if (trackUri !== lastTrackUri) {
             
-            // KRİTİK ÇÖZÜM: Yeni şarkı için YouTube'da arama yap.
-            // Arama bitene kadar (eski) lastTrackUri'yi değiştirmeyiz, böylece
-            // arama sırasında ekranda "Şarkı Oynatılamıyor" yazmaz.
-
             console.log(`Yeni şarkı tespit edildi: ${trackTitle}. YouTube aranıyor...`);
             const videoId = await searchYoutube(trackTitle);
 
@@ -239,18 +212,17 @@ io.on('connection', (socket) => {
             } else {
                 // YouTube'da bulunamazsa, durdurma komutu gönder
                 io.emit('syncCommand', { command: 'stop' });
-                lastTrackUri = null; // URI'yı temizle ki tekrar aramayı denesin
+                lastTrackUri = null; 
                 return;
             }
         }
 
-        // PLAY/PAUSE DURUM GÜNCELLEMESİ (Sadece mevcut şarkının durumu değiştiyse)
+        // PLAY/PAUSE DURUM GÜNCELLEMESİ (Mevcut şarkının durumu değiştiyse)
         const basePayload = {
             progress: progressMs,
             duration: durationMs,
             trackTitle: trackTitle,    
             albumImgUrl: albumImgUrl,
-            // Ekstra garanti
             videoId: currentVideoId 
         };
 
