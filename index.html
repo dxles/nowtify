@@ -234,7 +234,7 @@ function renderNoTrack() {
 }
 
 // ------------------------------------------------------------------
-// YOUTUBE PLAYER API FONKSİYONLARI (DÜZELTİLDİ)
+// YOUTUBE PLAYER API FONKSİYONLARI 
 // ------------------------------------------------------------------
 
 // YouTube API'si hazır olduğunda çağrılır
@@ -273,12 +273,12 @@ function onPlayerStateChange(event) {
 }
 
 // ------------------------------------------------------------------
-// SOCKET.IO İstemci Kodu (DÜZELTİLDİ - SENKRONİZE)
+// SOCKET.IO İstemci Kodu (GÜÇLENDİRİLMİŞ SENKRONİZASYON)
 // ------------------------------------------------------------------
 
 const socket = io();
 
-// Hata veren fonksiyon DÜZELTİLDİ: Artık playerReady ve SEEK kontrolü var.
+// GÜÇLENDİRİLMİŞ handleSyncCommand
 function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, duration) {
     
     // Sanatçı Adını ve Şarkı Adını ayır
@@ -313,21 +313,30 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
             break;
 
         case 'play':
-            // KRİTİK DÜZELTME: İlerleme Kontrolü (Seek)
+            
+            // YOUTUBE VE SPOTIFY SÜRELERİNİ KARŞILAŞTIR
             if (typeof player.getCurrentTime === 'function') {
-                const youtubeTime = Math.floor(player.getCurrentTime()); // Saniye cinsinden
                 const spotifyTime = Math.floor(progress / 1000); // Saniye cinsinden
+                const youtubeTime = Math.floor(player.getCurrentTime()); // Saniye cinsinden
                 const diff = Math.abs(spotifyTime - youtubeTime);
                 
-                // Eğer fark 1.5 saniyeden fazlaysa (yeniden başlatma veya seek yapılmışsa)
-                if (diff > 1.5) {
-                    console.log(`RESYNC (SEEK): Fark ${diff}s. YouTube: ${youtubeTime}s, Spotify: ${spotifyTime}s. Seeking...`);
-                    // seekTo(saniye, allowSeekAhead)
+                // Eğer fark 2 saniyeden fazlaysa (seek veya yeniden başlatma yapılmışsa)
+                if (diff > 2) {
+                    console.log(`RESYNC ZORLAMA (SEEK): Fark ${diff}s. YouTube: ${youtubeTime}s, Spotify: ${spotifyTime}s. Zorla senkronize ediliyor...`);
+                    
+                    // 1. YouTube'u duraklat (seek'in daha temiz işlemesi için)
+                    player.pauseVideo(); 
+                    
+                    // 2. Doğru konuma kaydır
                     player.seekTo(spotifyTime, true); 
+                    
+                    // 3. Tekrar oynat
+                    player.playVideo();
+                    return; // Zorlama yapıldığı için aşağıdaki normal playVideo'yu atla
                 }
             }
-
-            // Oynatıcıyı oynat
+            
+            // Normal oynat komutu (Seek gerekmiyorsa)
             if (typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1) { // 1 = YT.PlayerState.PLAYING
                 player.playVideo();
             }
