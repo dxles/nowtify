@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
-import cookieParser from 'cookie-parser'; // <<< KRİTİK EKLENTİ
+import cookieParser from 'cookie-parser'; 
 import path from 'path';
 
 // Express setup
@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new SocketIO(server);
 
-app.use(cookieParser()); // <<< KRİTİK: State_mismatch hatasını çözmek için
+app.use(cookieParser()); 
 app.use(express.static(path.join(process.cwd(), 'public'))); 
 
 // Supabase setup
@@ -52,21 +52,55 @@ const generateRandomString = length => {
     return text;
 };
 
-// YENİ FONKSİYON: Şarkıyı YouTube'da arar
-async function searchYoutube(query) {
+// YENİ VE İYİLEŞTİRİLMİŞ FONKSİYON: Şarkıyı YouTube'da arar (Önbellekleme eklendi)
+async function searchYoutube(query, trackUri) {
     if (!ytKey) return null;
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${ytKey}&maxResults=1`;
+
+    // 1. CACHE KONTROLÜ: Supabase'de var mı?
+    const { data: cacheData } = await supabase
+        .from('youtube_cache')
+        .select('video_id')
+        .eq('track_uri', trackUri)
+        .limit(1);
+
+    if (cacheData && cacheData.length > 0) {
+        console.log(`CACHE HIT: ${query}`);
+        return cacheData[0].video_id; // Cache'den dön
+    }
+    
+    // 2. ARAMA SORGUSU TEMİZLEME: Parantez içindeki kelimeleri ve Remastered/Live gibi etiketleri kaldırır.
+    let cleanedQuery = query.replace(/\s*\(.*?\)\s*/g, '').replace(/\s*\[.*?\]\s*/g, '');
+    cleanedQuery = cleanedQuery.replace(/- Live$|- Remastered$|- Version$/i, '').trim();
+    
+    console.log(`YOUTUBE API ARAMASI: ${cleanedQuery}`);
+
+    // 3. YOUTUBE API ARAMASI
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanedQuery)}}&type=video&key=${ytKey}&maxResults=1`;
+    
     try {
         const response = await fetch(searchUrl);
         const data = await response.json();
+        
         if (data.items && data.items.length > 0) {
-            return data.items[0].id.videoId;
+            const videoId = data.items[0].id.videoId;
+
+            // 4. BAŞARILI SONUCU CACHE'E KAYDET
+            await supabase.from('youtube_cache').insert({
+                track_uri: trackUri,
+                track_title: query,
+                video_id: videoId
+            });
+
+            return videoId;
         }
         return null;
     } catch (e) {
+        console.error("YouTube Arama Hatası:", e.message);
+        // Bu genellikle kota dolduğunda olur. Kota dolduğunda da null döner.
         return null;
     }
 }
+
 
 // ------------------------------------------------------------------
 // ROTASLAR
@@ -91,7 +125,7 @@ app.get('/login', (req, res) => {
         }));
 });
 
-// Spotify Callback 
+// Spotify Callback
 app.get('/callback', async (req, res) => {
     const code = req.query.code || null;
     const state = req.query.state || null;
@@ -172,7 +206,9 @@ io.on('connection', (socket) => {
         lastTrackUri = trackUri;
         currentTrackTitle = trackTitle;
         
-        const videoId = await searchYoutube(trackTitle);
+        // KRİTİK DEĞİŞİKLİK: trackUri'yi caching için gönderiyoruz
+        const videoId = await searchYoutube(trackTitle, trackUri); 
+        
         if (videoId) {
             currentVideoId = videoId;
             io.emit('syncCommand', { 
@@ -185,6 +221,7 @@ io.on('connection', (socket) => {
             });
             return; 
         } else {
+            // YouTube'da bulunamadıysa veya kota dolduysa
             io.emit('syncCommand', { command: 'stop', trackTitle: `YouTube'da bulunamadı: ${trackTitle}` });
             return;
         }
