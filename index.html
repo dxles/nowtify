@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nowtify (By dxles)</title>
-<link rel="icon" href="/favicon.ico" type="image/x-icon"> 
-</head>
+<title>Nowtify (by dxles)</title>
+<link rel="icon" type="image/png" href="/favicon.png"> </head>
 <body>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
 
@@ -21,277 +21,183 @@ body{
   display:flex;
   justify-content:flex-start; 
   align-items:center;
-  /* KRİTİK: Body'nin kendisini tıklanmaz yapıyoruz */
   pointer-events: none; 
 }
 
-/* KRİTİK POINTER EVENTS GARANTİSİ */
-/* Sadece login konteynerini ve içindekileri tıklanabilir yapıyoruz */
 #login-container {
     pointer-events: auto !important; 
-    z-index: 999999; /* Z-index'i olabilecek en yükseğe çıkarıyoruz */
+    z-index: 999999; 
+    transition: opacity 0.5s ease-in-out;
 }
 #login-container * {
     pointer-events: auto !important;
 }
 
-/* ------------------- SPOTIFY TEMA STİLLERİ ------------------- */
-#background{
-  position:absolute;
-  top:0; left:0; width:100%; height:100%;
-  background-size:cover;
-  background-position:center;
-  filter:blur(30px) brightness(0.4);
-  z-index:0;
-  transition: all 0.5s ease;
+#background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #121212;
+    filter: blur(50px) brightness(0.7);
+    transition: background-image 0.5s ease-in-out;
+    z-index: -1;
 }
 
-#main{
-  position:relative;
-  display:flex;
-  align-items:center;
-  margin-left:50px;
-  z-index:1;
-  opacity:1;
-  transition: opacity 0.5s ease, transform 0.1s ease;
-  display:none; /* Başlangıçta gizli */
+#main {
+    display: none; /* Başlangıçta gizli */
+    position: relative;
+    z-index: 10;
+    padding: 40px;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
-/* Kalan CSS kodları aynı kalıyor. */
-
-#album-img{
-  width:250px;
-  border-radius:15px;
-  box-shadow:0 20px 50px rgba(0,0,0,0.7);
-  transition: transform 0.1s ease;
+#player-container {
+    width: 0;
+    height: 0;
+    position: absolute;
+    overflow: hidden;
+    opacity: 0;
 }
 
-/* BASS PATLAMASI EFEKTİ SINIFLARI */
-.is-playing #main {
-    transform: scale(0.995);
-}
-.is-playing #album-img {
-    box-shadow: 0 0 40px #1db954, 0 0 80px rgba(29, 185, 84, 0.5);
-}
-
-#info{
-  margin-left:40px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-}
-
-#song-name{ font-size:2em; font-weight:700; margin-bottom:10px; }
-#artist{ font-size:1.2em; }
-
-/* PROGRESS VE SANIYE SAYACI CONTAINER */
-#progress-container {
-    margin-top: 15px;
+#album-art {
     width: 300px;
-}
-#progress{
-  width:100%; height:10px; background:rgba(255,255,255,0.2); border-radius:5px; overflow:hidden;
-}
-#progress-bar{
-  height:100%; width:0%; background:#1db954; transition:width 0.1s linear;
+    height: 300px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    margin-bottom: 30px;
 }
 
-/* YENİ: Saniye Sayacı Stili */
+#track-title {
+    font-size: 2em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+#progress-bar-container {
+    width: 400px;
+    max-width: 80%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    margin: 20px auto 10px;
+}
+
+#progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #1DB954; /* Spotify Yeşil */
+    border-radius: 4px;
+    transition: width 0.5s linear;
+}
+
 #time-info {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.7);
     display: flex;
     justify-content: space-between;
-    font-size: 0.85em;
-    color: #bbb;
-    margin-top: 5px;
+    width: 400px;
+    max-width: 80%;
+    margin: 0 auto;
 }
 
+#no-track-message {
+    font-size: 1.5em;
+    color: #b3b3b3;
+}
 
-/* ------------------- EQUALIZER STİLLERİ ------------------- */
-#equalizer-container {
+/* Login Ekranı Stilleri */
+#login-container {
     position: fixed;
-    bottom: 120px; 
-    left: 40px;
-    z-index: 1; 
-    display: flex;
-    align-items: flex-end;
-    height: 30px;
-    width: 60px;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-}
-.is-playing #equalizer-container {
-    opacity: 1;
-}
-.bar {
-    width: 8px;
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 100%;
-    background-color: #1db954;
-    margin: 0 2px;
-    display: inline-block;
-    border-radius: 1px;
-    transform-origin: bottom;
-    animation: bar-up-down 0.8s ease-in-out infinite alternate;
-}
-
-/* Equalizer Animasyonu */
-@keyframes bar-up-down {
-    0% { height: 5px; }
-    100% { height: 30px; }
-}
-.bar:nth-child(1) { animation-delay: 0s; }
-.bar:nth-child(2) { animation-delay: 0.1s; animation-duration: 0.6s; }
-.bar:nth-child(3) { animation-delay: 0.2s; animation-duration: 0.9s; }
-.bar:nth-child(4) { animation-delay: 0.3s; animation-duration: 0.7s; }
-
-
-/* ------------------- VİDEO TEMASI STİLLERİ (FADE EFEKTİ EKLENDİ) ------------------- */
-#youtube-player-container {
-    position: fixed; 
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 10; 
-    width: 90vw; 
-    max-width: 800px;
-    height: 50vw;
-    max-height: 450px;
-    display: none; 
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
-    opacity: 0; 
-    transition: opacity 1.2s ease-in-out; 
-}
-
-/* VİDEO AKTİFKEN TEMALARI YAVAŞÇA GİZLE */
-.video-active #main, 
-.video-active #background, 
-.video-active #equalizer-container {
-    opacity: 0 !important;
-    visibility: hidden; 
-    transition: opacity 0.5s ease, visibility 0.5s linear 0.5s;
-}
-.video-active #youtube-player-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #121212;
     opacity: 1;
-    transition-delay: 0.5s; 
 }
 
-/* ------------------- BUTON STİLİ (SOL ALT) ------------------- */
-#video-toggle-btn {
-    position: fixed;
-    bottom: 30px;
-    left: 30px; 
-    z-index: 20; 
-    background: rgba(255, 255, 255, 0.15); 
+.login-button {
+    background-color: #1DB954; /* Spotify Yeşil */
     color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 10px 20px;
+    padding: 15px 30px;
+    text-decoration: none;
     border-radius: 50px;
-    cursor: pointer;
-    font-size: 1em;
+    font-size: 1.2em;
     font-weight: 700;
-    backdrop-filter: blur(5px);
-    transition: all 0.3s ease;
-    display: none;
-}
-#video-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: none;
 }
 
-/* LOGIN KONTEYNER STİLLERİ */
-#login-container{
-  position:fixed;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-  transition: opacity 0.5s ease;
-  text-align: center;
-}
-
-#login{
-  background:#1db954;
-  border:none;
-  padding:18px 50px;
-  border-radius:50px;
-  font-size:22px;
-  cursor:pointer;
-  box-shadow:0 10px 30px rgba(0,0,0,0.5);
-  transition: all 0.3s ease;
-}
-#login:hover{
-  transform: scale(1.1);
-  box-shadow:0 15px 40px rgba(0,0,0,0.7);
+.login-button:hover {
+    background-color: #1ED760;
 }
 </style>
-</head>
-<body>
 
 <div id="background"></div>
 
+<div id="login-container">
+    <h1>Nowtify</h1>
+    <p style="margin: 20px 0;">Spotify'da dinlediğiniz müziği canlı olarak YouTube videosu ile senkronize edin.</p>
+    <a href="/login" class="login-button">Kendi Hesabımla Spotify'a Giriş Yap</a>
+</div>
+
 <div id="main">
-  <img id="album-img" src="" alt="Albüm Kapağı">
-  <div id="info">
-    <div id="song-name"></div>
-    <div id="artist"></div>
-    <div id="progress-container">
-        <div id="progress"><div id="progress-bar"></div></div>
+    <div id="content">
+        <img id="album-art" src="favicon.ico" alt="Albüm Kapağı">
+        <div id="track-title">Şu an bir şey çalmıyor...</div>
+        
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
         <div id="time-info">
             <span id="current-time">0:00</span>
-            <span id="total-duration">0:00</span>
+            <span id="duration">0:00</span>
+        </div>
+
+        <div id="player-container">
+            <div id="youtube-player"></div>
         </div>
     </div>
-  </div>
 </div>
-
-<div id="equalizer-container">
-    <div class="bar"></div>
-    <div class="bar"></div>
-    <div class="bar"></div>
-    <div class="bar"></div>
-</div>
-
-<div id="login-container">
-    <h1 style="color: #1DB954; margin-bottom: 20px;">NOWTIFY PRO</h1>
-    <button id="login" onclick="window.location.href='/login'">Kendi Hesabımla Spotify'a Giriş Yap (Kumanda)</button>
-    <p style="margin-top: 10px; color: #bbb; max-width: 300px;">Spotify kumanda, ses YouTube'dan gelecektir. Giriş yapan sadece kumanda eder.</p>
-</div>
-
-<div id="youtube-player-container">
-    <div id="youtube-player"></div>
-</div>
-
-<button id="video-toggle-btn">Video Göster</button>
-
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-// ... (Tüm JavaScript kodları aynı kalıyor, sadece loginBtn.onclick kaldırıldı)
+// 1. YouTube API'sini yükle
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+const firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-const socket = io();
 
-const albumImg = document.getElementById('album-img');
-const songName = document.getElementById('song-name');
-const artist = document.getElementById('artist');
+const loginContainer = document.getElementById('login-container');
+const main = document.getElementById('main');
+const albumImg = document.getElementById('album-art');
+const background = document.getElementById('background');
 const progressBar = document.getElementById('progress-bar');
 const currentTimeDisplay = document.getElementById('current-time');
-const totalDurationDisplay = document.getElementById('total-duration');
 
-const background = document.getElementById('background');
-const main = document.getElementById('main');
-const loginContainer = document.getElementById('login-container');
-const loginBtn = document.getElementById('login');
-
-const playerContainer = document.getElementById('youtube-player-container');
-const toggleVideoBtn = document.getElementById('video-toggle-btn'); 
-
-let duration = 0; // ms cinsinden
 let token = null;
-let player;
-let isPlayerReady = false;
+let duration = 0;
+let player = null;
+let intervalId = null;
+let syncIntervalId = null;
 
-// Zamanı milisaniyeden MM:SS formatına çeviren yardımcı fonksiyon
+// KRİTİK DEĞİŞKEN: Oynatıcının kullanıma hazır olup olmadığını tutar
+let playerReady = false; 
+
+// Zaman formatlama fonksiyonu
 function formatTime(ms) {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -299,150 +205,130 @@ function formatTime(ms) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Youtube Iframe API yükleme (Aynı kalıyor)
-const tag = document.createElement('script');
-tag.src = "https://www.youtube.com/iframe_api";
-const firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-window.onYouTubeIframeAPIReady = function() { isPlayerReady = true; }
-
-// Buton aksiyonu (Tema Geçişi)
-toggleVideoBtn.onclick = () => {
-    const isActive = document.body.classList.contains('video-active');
-    
-    if (isActive) {
-        playerContainer.style.opacity = 0; 
-        document.body.classList.remove('video-active');
-        setTimeout(() => { 
-            playerContainer.style.display = 'none'; 
-        }, 500); 
-        toggleVideoBtn.textContent = 'Video Göster';
-    } else {
-        playerContainer.style.display = 'block'; 
-        setTimeout(() => {
-            playerContainer.style.opacity = 1; 
-            document.body.classList.add('video-active');
-        }, 100); 
-        toggleVideoBtn.textContent = 'Video Gizle';
-    }
+function renderNoTrack() {
+    albumImg.src = 'favicon.ico';
+    document.getElementById('track-title').innerText = 'Şu an bir şey çalmıyor...';
+    progressBar.style.width = '0%';
+    currentTimeDisplay.innerText = '0:00';
+    document.getElementById('duration').innerText = '0:00';
+    background.style.background = 'none';
+    background.style.backgroundColor = '#121212';
 }
 
-// Oynatıcı kontrol fonksiyonu
-function handleSyncCommand(data) {
-    if (!isPlayerReady) return;
+// ------------------------------------------------------------------
+// YOUTUBE PLAYER API FONKSİYONLARI (DÜZELTİLDİ)
+// ------------------------------------------------------------------
 
-    if (data.command === 'play') {
-        document.body.classList.add('is-playing');
-    } else if (data.command === 'pause' || data.command === 'stop') {
-        document.body.classList.remove('is-playing');
+// YouTube API'si hazır olduğunda çağrılır
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('youtube-player', {
+        height: '100%',
+        width: '100%',
+        videoId: '', 
+        playerVars: {
+            'playsinline': 1,
+            'autoplay': 1,
+            'controls': 0,
+            'enablejsapi': 1,
+            'origin': window.location.origin 
+        },
+        events: {
+            'onReady': onPlayerReady, // Yeni eklendi
+            'onStateChange': onPlayerStateChange
+        }
+    });
+}
+
+// YENİ FONKSİYON: Oynatıcı Yüklendiğinde çalışır
+function onPlayerReady(event) {
+    playerReady = true; // Oynatıcı hazır!
+    console.log("YouTube Oynatıcısı Hazır.");
+}
+
+function onPlayerStateChange(event) {
+    // Sadece oynatma/durdurma durumları için burada kod eklenebilir.
+    // Şimdilik senkronizasyon mantığı Socket.IO üzerinden çalıştığı için burası boş kalabilir.
+}
+
+// ------------------------------------------------------------------
+// SOCKET.IO İstemci Kodu (DÜZELTİLDİ)
+// ------------------------------------------------------------------
+
+const socket = io();
+
+// Hata veren fonksiyon DÜZELTİLDİ: Artık playerReady kontrolü var.
+function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, duration) {
+    
+    // OYNATICI HAZIR MI KONTROLÜ
+    if (!playerReady) {
+        // Oynatıcı hazır değilse, komutu görmezden gel ve tekrar denemek için bekle
+        console.warn(`Oynatıcı hazır değil. Komut görmezden gelindi: ${command}`);
+        // Eğer yükleme komutu gelirse, oynatıcı hazır olduğunda tekrar denenmesi gerekebilir.
+        // Ama şimdilik sunucunun yeni komut göndermesini bekleyelim.
+        return; 
     }
 
-    if (!player && data.videoId) {
-        player = new YT.Player('youtube-player', {
-            height: '100%',
-            width: '100%',
-            videoId: data.videoId,
-            playerVars: {
-                'playsinline': 1,
-                'autoplay': 1,
-                'controls': 0
-            },
-            events: {
-                'onReady': (event) => {
-                    if(data.progress) {
-                        event.target.seekTo(data.progress / 1000, true);
-                    }
-                    event.target.playVideo();
-                },
-            }
-        });
-        toggleVideoBtn.style.display = 'block'; 
-    }
-    if (!player) return;
-
-    // Komutları uygula
-    switch (data.command) {
+    switch (command) {
         case 'load':
-            playerContainer.style.opacity = 0;
+            // Yükleme komutu: Yeni şarkı gelince oynatıcıya videoyu yükle
+            albumImg.src = albumImgUrl;
+            document.getElementById('track-title').innerText = trackTitle;
+            document.getElementById('duration').innerText = formatTime(duration);
+            background.style.background = `url(${albumImgUrl}) no-repeat center center`;
+            background.style.backgroundSize='cover';
             
-            setTimeout(() => {
-                player.loadVideoById(data.videoId, data.progress / 1000);
-                
-                setTimeout(() => {
-                    playerContainer.style.opacity = 1; 
-                }, 50); 
-
-                renderSpotifyUI(data.trackTitle); 
-            }, 1200); 
-
-            toggleVideoBtn.style.display = 'block';
+            // Oynatıcı hazır olduğu için yüklemeyi güvenle yapabiliriz
+            player.loadVideoById({
+                'videoId': videoId,
+                'startSeconds': Math.floor(progress / 1000) 
+            });
             break;
-            
+
         case 'play':
-            if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+            // player.getPlayerState hatasını engellemek için kontrol
+            if (typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1) { // 1 = YT.PlayerState.PLAYING
                 player.playVideo();
             }
-            const youtubeTime = player.getCurrentTime() * 1000;
-            const difference = Math.abs(youtubeTime - data.progress);
-            
-            if (difference > 1000) { 
-                player.seekTo(data.progress / 1000, true);
-            }
             break;
-            
+
         case 'pause':
-            if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+            // player.getPlayerState hatasını engellemek için kontrol
+            if (typeof player.getPlayerState === 'function' && player.getPlayerState() === 1) {
                 player.pauseVideo();
             }
             break;
             
         case 'stop':
-            if (player) {
-                player.stopVideo();
+            // player.stopVideo() da aynı şekilde TypeError verebilirdi.
+            if (typeof player.stopVideo === 'function') {
+                player.stopVideo(); 
+            } else if (typeof player.pauseVideo === 'function') {
+                 player.pauseVideo();
             }
-            document.body.classList.remove('video-active'); 
-            playerContainer.style.display = 'none';
-            toggleVideoBtn.style.display = 'none';
+            
             renderNoTrack();
             break;
     }
 }
 
-// SPOTIFY UI RENDERING
-function renderSpotifyUI(trackTitle) {
-    const parts = trackTitle.split(' - ');
-    songName.textContent = parts.length > 1 ? parts[1] : trackTitle;
-    artist.textContent = parts.length > 1 ? parts[0] : 'Bilinmeyen Sanatçı';
-    main.style.display = 'flex';
-}
 
-// PROGRESS BAR VE ZAMAN GÜNCELLEME FONKSİYONU
-function updateProgress(current_ms, trackDuration_ms){
-  if(!trackDuration_ms || trackDuration_ms === 0) return; 
-  
-  progressBar.style.width=((current_ms/trackDuration_ms)*100)+'%';
-  currentTimeDisplay.textContent = formatTime(current_ms);
-  totalDurationDisplay.textContent = formatTime(trackDuration_ms);
-}
-
-function renderNoTrack() {
-    songName.textContent='🎧 Şu anda müzik çalmıyor';
-    artist.textContent='';
-    main.style.display = 'flex';
-    background.style.background = '#121212';
-    currentTimeDisplay.textContent = '0:00';
-    totalDurationDisplay.textContent = '0:00';
-}
-
-// Socket.IO'dan senkronizasyon komutlarını dinle
 socket.on('syncCommand', (data) => {
-    handleSyncCommand(data);
+    handleSyncCommand(data.command, data.videoId, data.progress, data.trackTitle, data.albumImgUrl, data.duration);
+    
+    // Progress bar'ı burada güncelleyelim.
+    if (data.command !== 'stop' && data.duration) {
+        const percentage = (data.progress / data.duration) * 100;
+        progressBar.style.width = `${percentage}%`;
+        currentTimeDisplay.innerText = formatTime(data.progress);
+    }
 });
 
-// Spotify API URL'si
+// ------------------------------------------------------------------
+// SPOTIFY İstemci Kodu
+// ------------------------------------------------------------------
+
 async function fetchTrack(t){
-    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing',{ 
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing?market=TR',{ 
         headers:{Authorization:`Bearer ${t}`}
     });
     if(r.status===204) return null;
@@ -456,12 +342,15 @@ async function fetchTrack(t){
 window.onload = async ()=>{
   const params = new URLSearchParams(window.location.search);
   token = params.get('access_token');
+  
+  // Eğer token varsa giriş ekranını kaldır.
   if(token){
     loginContainer.style.opacity='0';
     setTimeout(()=>{loginContainer.style.display='none';}, 500);
     main.style.display='flex';
   }
 
+  // Şarkı durumunu çeken ana fonksiyon
   async function updateTrack(){
     if(!token) {
         renderNoTrack();
@@ -475,24 +364,20 @@ window.onload = async ()=>{
         return;
     }
 
-    albumImg.src = data.item.album.images[0].url;
-    background.style.background = `url(${data.item.album.images[0].url}) no-repeat center center`;
-    background.style.backgroundSize='cover';
-    
-    duration = data.item.duration_ms;
-    updateProgress(data.progress_ms, duration);
-    
-    socket.emit('statusUpdate', data); 
+    // Bu bilgilerin hepsi server'a Socket.IO ile gönderiliyor.
+    // Geri kalan görsel güncellemeler server'dan gelen 'syncCommand' ile yapılıyor.
+    socket.emit('statusUpdate', data);
   }
 
+  // 2 saniyede bir Spotify durumunu kontrol et
+  syncIntervalId = setInterval(updateTrack, 2000);
+  
+  // Sayfa yüklendiğinde bir kere hemen kontrol et.
   if (token) {
-    updateTrack(); 
-    setInterval(updateTrack, 2000); 
-  } else {
-    // Token yoksa ve login ekranı kapalıysa aç (Ekstra güvenlik)
-    loginContainer.style.display = 'flex';
+      updateTrack(); 
   }
-}
+};
 </script>
+
 </body>
 </html>
