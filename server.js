@@ -75,7 +75,7 @@ async function searchYoutube(query, trackUri) {
     console.log(`YOUTUBE API ARAMASI: ${cleanedQuery}`);
 
     // 3. YOUTUBE API ARAMASI
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanedQuery)}}&type=video&key=${ytKey}&maxResults=1`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanedQuery)}&type=video&key=${ytKey}&maxResults=1`;
     
     try {
         const response = await fetch(searchUrl);
@@ -186,6 +186,7 @@ app.get('/callback', async (req, res) => {
 io.on('connection', (socket) => {
   socket.on('statusUpdate', async (data) => {
     
+    // Eğer çalma yoksa veya oturum kapandıysa durdur
     if (!data || !data.item || data.is_playing === false && data.progress_ms === 0) {
         io.emit('syncCommand', { command: 'stop' });
         lastTrackUri = ''; 
@@ -206,7 +207,7 @@ io.on('connection', (socket) => {
         lastTrackUri = trackUri;
         currentTrackTitle = trackTitle;
         
-        // KRİTİK DEĞİŞİKLİK: trackUri'yi caching için gönderiyoruz
+        // Önbellekleme ve temizleme mantığı ile YouTube'dan videoID'yi çek
         const videoId = await searchYoutube(trackTitle, trackUri); 
         
         if (videoId) {
@@ -227,6 +228,7 @@ io.on('connection', (socket) => {
         }
     }
 
+    // Oynatma/Durdurma komutlarını sadece mevcut şarkı için gönder
     if (isPlaying) {
         io.emit('syncCommand', { 
             command: 'play',
