@@ -317,7 +317,8 @@ function onYouTubeIframeAPIReady() {
             'autoplay': 1,
             'controls': 0,
             'enablejsapi': 1,
-            'origin': window.location.origin,
+            // KRİTİK: Güvenlik (Origin) ayarı
+            'origin': window.location.origin, 
             'mute': 1 // Tarayıcı kısıtlamaları için sessiz başlat
         },
         events: {
@@ -355,10 +356,10 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
     duration = durationMs;
     
     // ----------------------------------------------------
-    // KRİTİK HATA ÇÖZÜMÜ: trackTitle'ın undefined olma kontrolü
+    // KRİTİK HATA ÇÖZÜMÜ: trackTitle'ın undefined olma kontrolü (split hatası çözüldü)
     // ----------------------------------------------------
     let artist = '';
-    let title = trackTitle || 'Bilinmeyen Şarkı'; 
+    let title = trackTitle || 'Şu an bir şey çalmıyor...'; 
     
     // YALNIZCA trackTitle tanımlı VE metin içeriyorsa split et
     if (trackTitle && typeof trackTitle === 'string' && trackTitle.includes(' - ')) {
@@ -367,7 +368,6 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
         // Başlıkta olası birden fazla '-' olması durumunu yönet
         title = parts.slice(1).join(' - '); 
     } else {
-        // Eğer format beklenen gibi değilse veya boşsa, title'ı olduğu gibi kullan
         artist = ''; 
         title = trackTitle || 'Şu an bir şey çalmıyor...';
     }
@@ -454,25 +454,23 @@ socket.on('syncCommand', (data) => {
 });
 
 // ------------------------------------------------------------------
-// SPOTIFY İstemci Kodu (URL DÜZELTİLDİ)
+// SPOTIFY İstemci Kodu (HATA TESPİTİ LOG'U EKLENDİ)
 // ------------------------------------------------------------------
 
 async function fetchTrack(t){
-    // KRİTİK DÜZELTME: Doğru API endpointi
     const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing',{    
         headers:{Authorization:`Bearer ${t}`}
     });
     
     // Hata durumlarını kontrol et
-    if(r.status===204) return null; // İçerik Yok (Çalmıyor)
+    if(r.status===204) return null;
     if(r.status===401) {    
-        // Token süresi dolmuşsa/geçersizse otomatik olarak giriş sayfasına yönlendir.
-        console.error("Tokenin süresi dolmuş veya geçersiz.");
+        console.error("Tokenin süresi dolmuş veya geçersiz. Tekrar giriş yapın.");
         window.location.href = '/login'; 
         return null;
     }
     if(!r.ok){
-         console.error(`Spotify API hatası: ${r.status}`);
+         console.error(`Spotify API hatası: ${r.status}. Durum Kodu: ${r.status}`);
          return null;
     }
     return await r.json();
@@ -483,7 +481,6 @@ async function fetchTrack(t){
 // ------------------------------------------------------------------
 
 window.onload = async ()=>{
-    // KRİTİK DÜZELTME: Tokeni URL'nin hash (#) kısmından oku
     const hash = window.location.hash.substring(1); 
     const params = new URLSearchParams(hash);
     token = params.get('access_token');
@@ -511,6 +508,11 @@ window.onload = async ()=>{
         }
         
         const data = await fetchTrack(token);
+
+        // KRİTİK LOG: İstemci veriyi çekip çekmediğini teyit eder
+        if (data && data.is_playing) {
+             console.log(`[İSTEMCİ LOG] Şarkı Çekildi: ${data.item.name}. Sunucuya Gönderiliyor.`);
+        }
         
         if(!data || !data.item){
             socket.emit('statusUpdate', null);
