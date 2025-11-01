@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nowtify (By dxles)</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+<meta name="google-site-verification" content="ArLTunlOq2ZscAKEMU33CX_7ic5Ygzf2os9RxSdIZnU" />
+
+</head>
+<body>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+    font-family:'Montserrat',sans-serif;
+    overflow:hidden;
+    background:#121212;
+    color:#fff;
+    height:100vh;
+    display:flex;
+    justify-content:flex-start;    
+    align-items:center;
+    pointer-events: none;    
+}
+
+#login-container {
+    pointer-events: auto !important;    
+    z-index: 999999;    
+    transition: opacity 0.5s ease-in-out;
+    display: flex; /* Başlangıçta Görünür */
+    flex-direction: column;
+}
+#login-container * {
+    pointer-events: auto !important;
+}
+
+#background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #121212;
+    filter: blur(50px) brightness(0.7);
+    transition: background-image 0.5s ease-in-out;
+    z-index: -1;
+}
+
+#main {
+    display: none; /* Başlangıçta gizli */
+    position: relative;
+    z-index: 10;
+    padding: 40px;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-direction: column;
+}
+
+/* Sanatçı Adı */
+#artist-name {
+    font-size: 1.2em;
+    font-weight: 400;
+    color: #b3b3b3;    
+    margin-bottom: 20px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+#player-container {
+    /* Oynatıcı gizli kalmalı */
+    width: 0; 
+    height: 0;
+    position: absolute;
+    overflow: hidden;
+    opacity: 0;
+}
+
+#album-art {
+    width: 300px;
+    height: 300px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    margin-bottom: 30px;
+}
+
+#track-title {
+    font-size: 2em;
+    font-weight: 700;
+    margin-bottom: 5px;    
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+#progress-bar-container {
+    width: 400px;
+    max-width: 80%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    margin: 20px auto 10px;
+}
+
+#progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #1DB954;    
+    border-radius: 4px;
+    transition: none;    
+}
+
+#time-info {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    justify-content: space-between;
+    width: 400px;
+    max-width: 80%;
+    margin: 0 auto;
+}
+
+/* Equalizer */
+#visualizer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px; 
+    width: 40px;
+    height: 40px;
+    display: none; 
+    align-items: flex-end;
+    justify-content: space-between;
+    z-index: 15;
+}
+
+.bar {
+    width: 5px;
+    height: 5px;
+    background-color: #1DB954;    
+    border-radius: 2px;
+    animation: slow-bounce 1.0s ease-in-out infinite alternate;    
+}
+
+.bar:nth-child(2) { animation-delay: 0.2s; }
+.bar:nth-child(3) { animation-delay: 0.4s; }
+.bar:nth-child(4) { animation-delay: 0.6s; }
+
+@keyframes slow-bounce {
+    from { height: 5px; }
+    to { height: 25px; }    
+}
+
+/* Login Ekranı Stilleri */
+#login-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #121212;
+    opacity: 1;
+}
+
+.login-button {
+    background-color: #1DB954;    
+    color: white;
+    padding: 15px 30px;
+    text-decoration: none;
+    border-radius: 50px;
+    font-size: 1.2em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: none;
+}
+
+.login-button:hover {
+    background-color: #1ED760;
+}
+
+</style>
+
+<div id="background"></div>
+
+<div id="login-container">
+    <h1>Nowtify</h1>
+    <p style="margin: 20px 0;">Spotify'da dinlediğiniz müziği canlı olarak YouTube videosu ile senkronize edin.</p>
+    <a href="/login" class="login-button">Kendi Hesabımla Spotify'a Giriş Yap</a>
+</div>
+
+<div id="main">
+    <div id="content"> 
+        <img id="album-art" src="favicon.ico" alt="Albüm Kapağı">
+        <div id="track-title">Şu an bir şey çalmıyor...</div>
+        <div id="artist-name"></div>    
+        
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="time-info">
+            <span id="current-time">0:00</span>
+            <span id="duration">0:00</span>
+        </div>
+
+        <div id="player-container">
+            <div id="youtube-player"></div>
+        </div>
+    </div>
+
+    <div id="visualizer">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// 1. YouTube API'sini yükle
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+const firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+
+const loginContainer = document.getElementById('login-container');
+const main = document.getElementById('main');
+const albumImg = document.getElementById('album-art');
+const background = document.getElementById('background');
+const progressBar = document.getElementById('progress-bar');
+const currentTimeDisplay = document.getElementById('current-time');
+const visualizer = document.getElementById('visualizer');    
+const artistNameDisplay = document.getElementById('artist-name');    
+
+let token = null;
+
+// KRİTİK DEĞİŞKENLER
+let duration = 0; 
+let player = null;
+let playerReady = false;    
+let smoothUpdateInterval = null; 
+let lastProgressMs = 0; 
+let lastTimestamp = 0;    
+let isPlaying = false;    
+
+// Zaman formatlama fonksiyonu
+function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function renderNoTrack() {
+    albumImg.src = '/favicon.ico';
+    document.getElementById('track-title').innerText = 'Şu an bir şey çalmıyor...';
+    artistNameDisplay.innerText = '';    
+    progressBar.style.width = '0%';
+    currentTimeDisplay.innerText = '0:00';
+    document.getElementById('duration').innerText = '0:00';
+    background.style.background = 'none';
+    background.style.backgroundColor = '#121212';
+    visualizer.style.display = 'none';    
+    isPlaying = false; 
+}
+
+// ------------------------------------------------------------------
+// AKICI İLERLEME ÇUBUĞU FONKSİYONLARI    
+// ------------------------------------------------------------------
+
+function startSmoothUpdate() {
+    if (smoothUpdateInterval) return; 
+
+    smoothUpdateInterval = setInterval(() => {
+        if (!isPlaying || duration <= 0 || !playerReady) {
+            clearInterval(smoothUpdateInterval);
+            smoothUpdateInterval = null;
+            return;
+        }
+
+        const elapsedTime = Date.now() - lastTimestamp;
+        let currentProgress = lastProgressMs + elapsedTime;
+        
+        if (currentProgress >= duration) {
+            currentProgress = duration;    
+            isPlaying = false;
+        }
+
+        const percentage = (currentProgress / duration) * 100;
+        progressBar.style.width = `${percentage}%`;
+        currentTimeDisplay.innerText = formatTime(currentProgress);
+        
+    }, 250);
+}
+
+// ------------------------------------------------------------------
+// YOUTUBE PLAYER API FONKSİYONLARI    
+// ------------------------------------------------------------------
+
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('youtube-player', {
+        height: '100%',
+        width: '100%',
+        videoId: '',    
+        playerVars: {
+            'playsinline': 1,
+            'autoplay': 1,
+            'controls': 0,
+            'enablejsapi': 1,
+            // KRİTİK: Origin hatasını çözer
+            'origin': window.location.origin, 
+            'mute': 1 
+        },
+        events: {
+            'onReady': onPlayerReady,    
+            'onStateChange': onPlayerStateChange
+        }
+    });
+}
+
+function onPlayerReady(event) {
+    playerReady = true;    
+    console.log("YouTube Oynatıcısı Hazır. Otomatik oynatma için sessiz başlatıldı.");
+}
+
+function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.PLAYING) {
+        visualizer.style.display = 'flex';
+    } else {
+        visualizer.style.display = 'none';
+    }
+}
+
+// ------------------------------------------------------------------
+// SOCKET.IO İstemci Kodu
+// ------------------------------------------------------------------
+
+const socket = io();
+
+// GÜÇLENDİRİLMİŞ handleSyncCommand
+function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, durationMs) {
+    
+    lastProgressMs = progress;
+    lastTimestamp = Date.now();
+    duration = durationMs;
+    
+    // Split hatası ve sanatçı/başlık ayırma
+    let artist = '';
+    let title = trackTitle || 'Şu an bir şey çalmıyor...'; 
+    
+    if (trackTitle && typeof trackTitle === 'string' && trackTitle.includes(' - ')) {
+        const parts = trackTitle.split(' - ');
+        artist = parts[0];
+        title = parts.slice(1).join(' - '); 
+    } else {
+        artist = ''; 
+        title = trackTitle || 'Şu an bir şey çalmıyor...';
+    }
+    
+    if (!playerReady) {
+        return;    
+    }
+
+    // Ortak Görsel Güncelleme
+    if (command !== 'stop') {
+        albumImg.src = albumImgUrl;
+        document.getElementById('track-title').innerText = title;    
+        artistNameDisplay.innerText = artist;    
+        document.getElementById('duration').innerText = formatTime(duration);
+        background.style.background = `url(${albumImgUrl}) no-repeat center center`;
+        background.style.backgroundSize='cover';
+    }
+
+    // Komutları İşle
+    switch (command) {
+        case 'load':
+            player.loadVideoById({
+                'videoId': videoId,
+                'startSeconds': Math.floor(progress / 1000)    
+            });
+            isPlaying = true;
+            startSmoothUpdate(); 
+            if (player.isMuted()) { player.unMute(); } 
+            visualizer.style.display = 'flex';
+            break;
+
+        case 'play':
+            isPlaying = true;
+            startSmoothUpdate(); 
+
+            if (typeof player.getCurrentTime === 'function') {
+                const spotifyTime = Math.floor(progress / 1000); 
+                const youtubeTime = Math.floor(player.getCurrentTime()); 
+                const diff = Math.abs(spotifyTime - youtubeTime);    
+                
+                if (diff > 1 || player.getPlayerState() !== 1) {    
+                    console.log(`RESYNC ZORLAMA (SEEK/PLAY): Fark ${diff}s. Seeking to ${spotifyTime}s.`);
+                    player.seekTo(spotifyTime, true);    
+                }
+            }
+            
+            if (player.isMuted()) { player.unMute(); } 
+            player.playVideo();
+            visualizer.style.display = 'flex';
+            break;
+
+        case 'pause':
+            isPlaying = false; 
+
+            if (typeof player.pauseVideo === 'function') {
+                player.pauseVideo();
+            }
+            progressBar.style.width = `${(progress / duration) * 100}%`;
+            currentTimeDisplay.innerText = formatTime(progress);
+
+            visualizer.style.display = 'none';
+
+            break;
+            
+        case 'stop':
+            isPlaying = false; 
+            if (typeof player.pauseVideo === 'function') {
+                player.pauseVideo();
+            }
+            renderNoTrack();
+            break;
+    }
+}
+
+
+socket.on('syncCommand', (data) => {
+    handleSyncCommand(data.command, data.videoId, data.progress, data.trackTitle, data.albumImgUrl, data.duration);
+});
+
+// ------------------------------------------------------------------
+// SPOTIFY İstemci Kodu 
+// ------------------------------------------------------------------
+
+async function fetchTrack(t){
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing',{    
+        headers:{Authorization:`Bearer ${t}`}
+    });
+    
+    // Hata durumlarını kontrol et
+    if(r.status===204) return null;
+    if(r.status===401) {    
+        console.error("Tokenin süresi dolmuş veya geçersiz. Tekrar giriş yapın.");
+        window.location.href = '/login'; 
+        return null;
+    }
+    if(!r.ok){
+         console.error(`Spotify API hatası: ${r.status}. Durum Kodu: ${r.status}`);
+         return null;
+    }
+    return await r.json();
+}
+
+// ------------------------------------------------------------------
+// PENCERE YÜKLENME (LOGIN) KISMI - KRİTİK EKRAN DEĞİŞTİRME DÜZELTİLDİ
+// ------------------------------------------------------------------
+
+window.onload = async ()=>{
+    const hash = window.location.hash.substring(1); 
+    const params = new URLSearchParams(hash);
+    token = params.get('access_token');
+    
+    if (token) {
+        window.location.hash = ''; 
+    }
+    
+    if(token){
+        // Başarılı giriş: Ekranları değiştir
+        loginContainer.style.opacity='0';
+        
+        setTimeout(()=>{
+            loginContainer.style.display='none';
+            main.style.display='flex'; // Ana içeriği göster
+        }, 500);
+        
+    } else {
+        main.style.display='none';
+    }
+
+    async function updateTrack(){
+        if(!token) {
+            renderNoTrack();
+            socket.emit('statusUpdate', null);
+            return;
+        }
+        
+        const data = await fetchTrack(token);
+
+        // İstemci veriyi çektiğini teyit eder
+        if (data && data.is_playing) {
+             console.log(`[İSTEMCİ LOG] Şarkı Çekildi: ${data.item.name}. Sunucuya Gönderiliyor.`);
+        }
+        
+        if(!data || !data.item){
+            socket.emit('statusUpdate', null);
+            return;
+        }
+
+        socket.emit('statusUpdate', data);
+    }
+
+    // 2 saniyede bir Spotify durumunu kontrol et
+    setInterval(updateTrack, 2000);
+    
+    if (token) {
+        updateTrack();    
+    }
+};
+</script>
+
+</body>
+</html>
