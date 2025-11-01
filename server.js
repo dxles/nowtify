@@ -1,11 +1,11 @@
-// Server.js - SON VE KESİN ÇÖZÜM
+// Server.js - SON VE KESİN ÇÖZÜM (Supabase ve Tüm Bileşenler Entegre Edildi)
 
 import * as dotenv from 'dotenv';
 dotenv.config({ path: `${process.cwd()}/.env.local` });    
 
 import express from 'express';
 import fetch from 'node-fetch';
-// Supabase kodları silindi, kullanılmadığı için sadeleştirildi
+import { createClient } from '@supabase/supabase-js'; // SUPABASE GEREKLİ
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
@@ -29,6 +29,17 @@ const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 const redirectUri = process.env.SPOTIFY_REDIRECT_URI;    
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
+// Supabase setup
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+// Hata kontrolü: Supabase key'leri eksikse, bağlantı null kalır, ama uygulama devam eder.
+if (!supabaseKey || !supabaseUrl) {
+    console.warn('UYARI: Supabase Key veya URL eksik. YouTube önbelleklemesi (caching) KULLANILMAYACAK.');
+}
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null; 
+
+
 // Global durum değişkenleri
 let lastTrackUri = null;
 let currentVideoId = null;
@@ -37,9 +48,30 @@ let currentTrackTitle = null;
 const stateKey = 'spotify_auth_state';
 
 /**
- * YouTube'da şarkıyı arama fonksiyonu
+ * YouTube'da şarkıyı arama ve Supabase'den önbellek kontrolü
  */
-async function searchYoutube(query) {
+async function searchYoutube(query, trackId) {
+    if (supabase) {
+        // 1. Supabase'den önbelleği kontrol et
+        try {
+            const { data, error } = await supabase
+                .from('youtube_cache')
+                .select('video_id')
+                .eq('track_id', trackId)
+                .single();
+
+            if (data && data.video_id) {
+                console.log(`[SUPABASE] Önbellekten bulundu: ${trackId}`);
+                return data.video_id;
+            }
+        } catch (error) {
+            // Önbellek okuma hatası olsa bile aramaya devam etmeli
+            // console.error('[SUPABASE] Önbellek okuma hatası:', error.message);
+        }
+    }
+
+
+    // 2. YouTube API ile ara
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${youtubeApiKey}&maxResults=1`;
 
     if (!youtubeApiKey) {
@@ -52,13 +84,31 @@ async function searchYoutube(query) {
         const data = await response.json();
 
         if (!response.ok) {
-            console.error(`YouTube API hatası (${response.status}):`, data);
+            // 403 (Kota) veya 400 (Yanlış istek) gibi hataları yakalar
+            console.error(`YouTube API hatası (${response.status}):`, data.error ? data.error.message : 'Bilinmeyen Hata');
             return null;
         }
 
         if (data.items && data.items.length > 0) {
             const videoItem = data.items.find(item => item.id.kind === 'youtube#video');
-            return videoItem ? videoItem.id.videoId : null;
+            const videoId = videoItem ? videoItem.id.videoId : null;
+
+            if (videoId && supabase) {
+                // 3. Supabase'e sonucu kaydet
+                try {
+                    const { error } = await supabase
+                        .from('youtube_cache')
+                        .insert([
+                            { track_id: trackId, track_title: query, video_id: videoId }
+                        ]);
+                    if (error) throw error;
+                    console.log(`[SUPABASE] Yeni sonuç önbelleğe kaydedildi: ${trackId}`);
+                } catch (error) {
+                    // Kayıt hatası önemli değil, senkronizasyon devam etmeli
+                    // console.error('[SUPABASE] Önbellek yazma hatası:', error.message);
+                }
+            }
+            return videoId;
         }
         return null;
     } catch (error) {
@@ -68,9 +118,6 @@ async function searchYoutube(query) {
 }
 
 
-/**
- * Spotify yetkilendirme akışı için rastgele string üretme
- */
 const generateRandomString = (length) => {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -155,7 +202,7 @@ app.get('/callback', async (req, res) => {
 
 
 /**
- * SOCKET.IO Olay Yönetimi (Veri Akışı Kontrolü)
+ * SOCKET.IO Olay Yönetimi 
  */
 io.on('connection', (socket) => {
     console.log('Yeni bir istemci bağlandı.');
@@ -164,17 +211,14 @@ io.on('connection', (socket) => {
         console.log('İstemci bağlantısı kesildi.');
     });
 
-    // İstemciden Spotify durum güncellemelerini al
     socket.on('statusUpdate', async (data) => {
         
-        // KRİTİK LOG: Veri sunucuya ulaşıyor mu?
         if (data && data.item) {
             console.log(`[SUNUCU LOG] Spotify verisi alındı. Şarkı: ${data.item.name}.`);
         } else {
             console.log('[SUNUCU LOG] Spotify verisi alındı: Çalmıyor/Boş.');
         }
 
-        // Şarkı çalma yoksa veya hata varsa
         if (!data || !data.item) {
             io.emit('syncCommand', { command: 'stop' });
             lastTrackUri = null;
@@ -183,29 +227,28 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Gerekli verileri çıkar
         const track = data.item;
         const isPlaying = data.is_playing;
         const progressMs = data.progress_ms;
         const trackUri = track.uri;
-        // Sanatçı ve Şarkı Adını birleştirme
         const trackTitle = `${track.artists.map(a=>a.name).join(', ')} - ${track.name}`; 
         const albumImgUrl = track.album.images[0].url;    
         const durationMs = track.duration_ms;
+        const trackId = track.id; // Supabase/Cache için track ID
 
         // YENİ ŞARKI KONTROLÜ
         if (trackUri !== lastTrackUri) {
             
-            console.log(`Yeni şarkı tespit edildi: ${trackTitle}. YouTube aranıyor...`);
-            const videoId = await searchYoutube(trackTitle);
+            console.log(`Yeni şarkı tespit edildi: ${trackTitle}. YouTube aranıyor (Önbellek Kontrolü Dahil)...`);
+            
+            // Supabase entegreli arama fonksiyonu
+            const videoId = await searchYoutube(trackTitle, trackId); 
 
             if (videoId) {
-                // Arama başarılı, şimdi global durumu güncelle
                 lastTrackUri = trackUri; 
                 currentVideoId = videoId;
                 currentTrackTitle = trackTitle;
                 
-                // 'load' komutu tüm gerekli verileri içerir
                 io.emit('syncCommand', {    
                     command: 'load',    
                     videoId: videoId,
@@ -216,14 +259,14 @@ io.on('connection', (socket) => {
                 });
                 return;    
             } else {
-                // YouTube'da bulunamazsa, durdurma komutu gönder
+                console.log(`UYARI: YouTube araması başarısız oldu veya video bulunamadı: ${trackTitle}. Şarkı bilgisi gönderilmiyor.`);
                 io.emit('syncCommand', { command: 'stop' });
                 lastTrackUri = null; 
                 return;
             }
         }
 
-        // PLAY/PAUSE DURUM GÜNCELLEMESİ (Mevcut şarkının durumu değiştiyse)
+        // PLAY/PAUSE DURUM GÜNCELLEMESİ
         const basePayload = {
             progress: progressMs,
             duration: durationMs,
