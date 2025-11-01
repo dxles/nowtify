@@ -32,8 +32,7 @@ body{
     pointer-events: auto !important;    
     z-index: 999999;    
     transition: opacity 0.5s ease-in-out;
-    /* Başlangıçta görünür ve üstte */
-    display: flex; 
+    display: flex; /* Başlangıçta Görünür */
     flex-direction: column;
 }
 #login-container * {
@@ -53,8 +52,7 @@ body{
 }
 
 #main {
-    /* KRİTİK DÜZELTME: Başlangıçta gizli tut, JS ile açılacak */
-    display: none; 
+    display: none; /* Başlangıçta gizli */
     position: relative;
     z-index: 10;
     padding: 40px;
@@ -63,7 +61,6 @@ body{
     align-items: center;
     justify-content: center;
     text-align: center;
-    /* JS ile açıldığında flex olarak belirlenecek */
     flex-direction: column;
 }
 
@@ -127,14 +124,14 @@ body{
     margin: 0 auto;
 }
 
-/* Equalizer (Sol Alta Alındı ve Hız Yavaşlatıldı) */
+/* Equalizer */
 #visualizer {
     position: absolute;
     bottom: 20px;
     left: 20px; 
     width: 40px;
     height: 40px;
-    display: none; /* Başlangıçta gizli */  
+    display: none; 
     align-items: flex-end;
     justify-content: space-between;
     z-index: 15;
@@ -148,12 +145,10 @@ body{
     animation: slow-bounce 1.0s ease-in-out infinite alternate;    
 }
 
-/* Her çubuk için farklı animasyon gecikmesi */
 .bar:nth-child(2) { animation-delay: 0.2s; }
 .bar:nth-child(3) { animation-delay: 0.4s; }
 .bar:nth-child(4) { animation-delay: 0.6s; }
 
-/* YENİ VE YAVAŞ HAREKET EFEKTİ */
 @keyframes slow-bounce {
     from { height: 5px; }
     to { height: 25px; }    
@@ -161,7 +156,6 @@ body{
 
 /* Login Ekranı Stilleri */
 #login-container {
-    /* Ekranı ortalamak için Flex ayarları */
     position: fixed;
     top: 0;
     left: 0;
@@ -322,9 +316,9 @@ function onYouTubeIframeAPIReady() {
             'autoplay': 1,
             'controls': 0,
             'enablejsapi': 1,
-            // KRİTİK: Origin hatasını çözmek için gereklidir
+            // KRİTİK: Origin hatasını çözer
             'origin': window.location.origin, 
-            'mute': 1 // Tarayıcı kısıtlamaları için sessiz başlat
+            'mute': 1 
         },
         events: {
             'onReady': onPlayerReady,    
@@ -339,7 +333,6 @@ function onPlayerReady(event) {
 }
 
 function onPlayerStateChange(event) {
-    // Equalizer, YouTube'da oynatılıyorsa gösterilir.
     if (event.data === YT.PlayerState.PLAYING) {
         visualizer.style.display = 'flex';
     } else {
@@ -360,24 +353,18 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
     lastTimestamp = Date.now();
     duration = durationMs;
     
-    // ----------------------------------------------------
-    // KRİTİK HATA ÇÖZÜMÜ: split() hatası çözüldü
-    // ----------------------------------------------------
+    // Split hatası ve sanatçı/başlık ayırma
     let artist = '';
     let title = trackTitle || 'Şu an bir şey çalmıyor...'; 
     
-    // YALNIZCA trackTitle tanımlı VE metin içeriyorsa split et
     if (trackTitle && typeof trackTitle === 'string' && trackTitle.includes(' - ')) {
         const parts = trackTitle.split(' - ');
         artist = parts[0];
-        // Başlıkta olası birden fazla '-' olması durumunu yönet
         title = parts.slice(1).join(' - '); 
     } else {
         artist = ''; 
         title = trackTitle || 'Şu an bir şey çalmıyor...';
     }
-    // ----------------------------------------------------
-
     
     if (!playerReady) {
         return;    
@@ -402,7 +389,6 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
             });
             isPlaying = true;
             startSmoothUpdate(); 
-            // KRİTİK: YENİ ŞARKI YÜKLENDİĞİNDE MUTE AÇILIR
             if (player.isMuted()) { player.unMute(); } 
             visualizer.style.display = 'flex';
             break;
@@ -416,14 +402,12 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
                 const youtubeTime = Math.floor(player.getCurrentTime()); 
                 const diff = Math.abs(spotifyTime - youtubeTime);    
                 
-                // KRİTİK: Senkronizasyon zorlaması ve oynat
                 if (diff > 1 || player.getPlayerState() !== 1) {    
                     console.log(`RESYNC ZORLAMA (SEEK/PLAY): Fark ${diff}s. Seeking to ${spotifyTime}s.`);
                     player.seekTo(spotifyTime, true);    
                 }
             }
             
-            // KRİTİK: PLAY KOMUTU GELDİĞİNDE MUTE AÇILIR VE OYNATILIR
             if (player.isMuted()) { player.unMute(); } 
             player.playVideo();
             visualizer.style.display = 'flex';
@@ -435,7 +419,6 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
             if (typeof player.pauseVideo === 'function') {
                 player.pauseVideo();
             }
-            // Progress bar'ı duraklama pozisyonunda güncelle
             progressBar.style.width = `${(progress / duration) * 100}%`;
             currentTimeDisplay.innerText = formatTime(progress);
 
@@ -459,7 +442,7 @@ socket.on('syncCommand', (data) => {
 });
 
 // ------------------------------------------------------------------
-// SPOTIFY İstemci Kodu (HATA TESPİTİ LOG'U EKLENDİ)
+// SPOTIFY İstemci Kodu 
 // ------------------------------------------------------------------
 
 async function fetchTrack(t){
@@ -486,13 +469,11 @@ async function fetchTrack(t){
 // ------------------------------------------------------------------
 
 window.onload = async ()=>{
-    // URL'deki hash'i okur
     const hash = window.location.hash.substring(1); 
     const params = new URLSearchParams(hash);
     token = params.get('access_token');
     
     if (token) {
-        // Token okundu, URL'den tokeni temizle
         window.location.hash = ''; 
     }
     
@@ -500,14 +481,12 @@ window.onload = async ()=>{
         // Başarılı giriş: Ekranları değiştir
         loginContainer.style.opacity='0';
         
-        // KRİTİK DÜZELTME: Login container'ı gizle ve main'i göster.
         setTimeout(()=>{
             loginContainer.style.display='none';
-            main.style.display='flex'; 
+            main.style.display='flex'; // Ana içeriği göster
         }, 500);
         
     } else {
-        // Token yoksa ana ekranı gizli tut (Login ekranı zaten CSS ile gösteriliyor)
         main.style.display='none';
     }
 
@@ -520,7 +499,7 @@ window.onload = async ()=>{
         
         const data = await fetchTrack(token);
 
-        // KRİTİK LOG: İstemci veriyi çekip çekmediğini teyit eder
+        // İstemci veriyi çektiğini teyit eder
         if (data && data.is_playing) {
              console.log(`[İSTEMCİ LOG] Şarkı Çekildi: ${data.item.name}. Sunucuya Gönderiliyor.`);
         }
