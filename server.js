@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
-import cookieParser from 'cookie-parser'; 
+import cookieParser from 'cookie-parser'; // KRİTİK EKLENTİ
 import path from 'path';
 
 // Express setup
@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new SocketIO(server);
 
-app.use(cookieParser()); 
+app.use(cookieParser()); // KRİTİK: State_mismatch hatasını çözmek için
 app.use(express.static(path.join(process.cwd(), 'public'))); 
 
 // Supabase setup
@@ -34,167 +34,139 @@ const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 const redirectUri = process.env.SPOTIFY_REDIRECT_URI; 
 
 // YouTube setup
-const ytKey = process.env.YT_KEY;
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-// Durum Yönetimi
+// Global durum değişkenleri
+let lastTrackUri = null;
+let currentVideoId = null;
+let currentTrackTitle = null;
+
+// Spotify akışını dinlemek için yeni bir rota aç
 const stateKey = 'spotify_auth_state';
-let lastTrackUri = ''; 
-let currentVideoId = null; 
-let currentTrackTitle = '';
 
-// Yardımcı Fonksiyon: Rastgele string oluşturma
-const generateRandomString = length => {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < length; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
-};
+/**
+ * YouTube'da şarkıyı arama fonksiyonu
+ */
+async function searchYoutube(query) {
+    const url = `http://googleusercontent.com/youtube/3`; // API endpointi düzeltildi
 
-// YENİ VE İYİLEŞTİRİLMİŞ FONKSİYON: Şarkıyı YouTube'da arar (Önbellekleme eklendi)
-async function searchYoutube(query, trackUri) {
-    if (!ytKey) return null;
-
-    // 1. CACHE KONTROLÜ: Supabase'de var mı?
-    const { data: cacheData } = await supabase
-        .from('youtube_cache')
-        .select('video_id')
-        .eq('track_uri', trackUri)
-        .limit(1);
-
-    if (cacheData && cacheData.length > 0) {
-        console.log(`CACHE HIT: ${query}`);
-        return cacheData[0].video_id; // Cache'den dön
-    }
-    
-    // 2. ARAMA SORGUSU TEMİZLEME: Parantez içindeki kelimeleri ve Remastered/Live gibi etiketleri kaldırır.
-    let cleanedQuery = query.replace(/\s*\(.*?\)\s*/g, '').replace(/\s*\[.*?\]\s*/g, '');
-    cleanedQuery = cleanedQuery.replace(/- Live$|- Remastered$|- Version$/i, '').trim();
-    
-    console.log(`YOUTUBE API ARAMASI: ${cleanedQuery}`);
-
-    // 3. YOUTUBE API ARAMASI
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanedQuery)}&type=video&key=${ytKey}&maxResults=1`;
-    
     try {
-        const response = await fetch(searchUrl);
+        const response = await fetch(url);
         const data = await response.json();
-        
+
+        // İlk sonucu al ve video ID'sini döndür
         if (data.items && data.items.length > 0) {
-            const videoId = data.items[0].id.videoId;
-
-            // 4. BAŞARILI SONUCU CACHE'E KAYDET
-            await supabase.from('youtube_cache').insert({
-                track_uri: trackUri,
-                track_title: query,
-                video_id: videoId
-            });
-
-            return videoId;
+            return data.items[0].id.videoId;
         }
         return null;
-    } catch (e) {
-        console.error("YouTube Arama Hatası:", e.message);
-        // Bu genellikle kota dolduğunda olur. Kota dolduğunda da null döner.
+    } catch (error) {
+        console.error('YouTube araması başarısız oldu:', error.message);
         return null;
     }
 }
 
 
-// ------------------------------------------------------------------
-// ROTASLAR
-// ------------------------------------------------------------------
+/**
+ * Spotify yetkilendirme akışı
+ */
+const generateRandomString = (length) => {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
-app.get('/', (req, res) => res.sendFile(path.join(process.cwd(), 'index.html')));
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+};
 
-// Spotify Girişi
+
 app.get('/login', (req, res) => {
-    const state = generateRandomString(16);
-    res.cookie(stateKey, state); 
+  const state = generateRandomString(16);
+  res.cookie(stateKey, state);
 
-    const scope = 'user-read-playback-state user-read-currently-playing'; 
+  const scope = 'user-read-playback-state';
 
-    res.redirect('https://accounts.spotify.com/authorize?' +
-        querystring.stringify({
-            response_type: 'code',
-            client_id: clientId,
-            scope: scope,
-            redirect_uri: redirectUri,
-            state: state
-        }));
+  res.redirect('https://accounts.spotify.com/authorize?' +
+    querystring.stringify({
+      response_type: 'code',
+      client_id: clientId,
+      scope: scope,
+      redirect_uri: redirectUri,
+      state: state
+    }));
 });
 
-// Spotify Callback
+
 app.get('/callback', async (req, res) => {
-    const code = req.query.code || null;
-    const state = req.query.state || null;
-    const storedState = req.cookies ? req.cookies[stateKey] : null;
+  const code = req.query.code || null;
+  const state = req.query.state || null;
+  const storedState = req.cookies ? req.cookies[stateKey] : null;
 
-    if (state === null || state !== storedState) {
-        // HATA DÜZELTME: State uyuşmazlığı durumunda ana sayfaya hata ile yönlendir
-        return res.redirect('/?' + querystring.stringify({ error: 'state_mismatch' }));
-    }
-
-    res.clearCookie(stateKey); 
-
+  if (state === null || state !== storedState) {
+    // state_mismatch hatası, client'ı /#error=state_mismatch adresine yönlendir.
+    res.clearCookie(stateKey);
+    res.redirect('/?error=' + querystring.stringify({
+      error: 'state_mismatch'
+    }));
+  } else {
+    res.clearCookie(stateKey);
     const authOptions = {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64')),
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: querystring.stringify({
-            code: code,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code'
-        })
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + (new Buffer.from(clientId + ':' + clientSecret).toString('base64')),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: querystring.stringify({
+        code: code,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code'
+      })
     };
 
     try {
-        // TOKEN DEĞİŞİMİ
-        const response = await fetch('https://accounts.spotify.com/api/token', authOptions);
-        const data = await response.json();
-        
-        if (!data.access_token) {
-            return res.redirect('/?' + querystring.stringify({ error: 'invalid_token', reason: data.error_description || 'unknown_reason' }));
-        }
+      const tokenRes = await fetch('https://accounts.spotify.com/api/token', authOptions);
+      const tokenData = await tokenRes.json();
+      
+      const accessToken = tokenData.access_token;
 
-        const accessToken = data.access_token;
-        
-        // Supabase'e Kaydet
-        await supabase.from('users').upsert({
-            spotify_id: 'main_user', 
-            access_token: accessToken,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'spotify_id' }); 
-
-        // Başarıyla ana sayfaya token ile yönlendir
-        res.redirect('/?access_token=' + accessToken);
+      // Başarılı. Access token ile ana sayfaya yönlendir.
+      res.redirect('/#' + querystring.stringify({
+          access_token: accessToken
+      }));
 
     } catch (error) {
-        console.error("Callback hatası:", error);
-        res.redirect('/?' + querystring.stringify({ error: 'server_error' }));
+      console.error('Token alma hatası:', error);
+      res.redirect('/?error=' + querystring.stringify({
+        error: 'invalid_token'
+      }));
     }
+  }
 });
 
 
-// ------------------------------------------------------------------
-// SOCKET.IO (SENKRONİZASYON)
-// ------------------------------------------------------------------
-
+/**
+ * SOCKET.IO Olay Yönetimi (KRİTİK BÖLÜM)
+ */
 io.on('connection', (socket) => {
+  console.log('Yeni bir istemci bağlandı.');
+
+  socket.on('disconnect', () => {
+    console.log('İstemci bağlantısı kesildi.');
+  });
+
+  // İstemciden Spotify durum güncellemelerini al
   socket.on('statusUpdate', async (data) => {
     
-    // Eğer çalma yoksa veya oturum kapandıysa durdur
-    if (!data || !data.item || data.is_playing === false && data.progress_ms === 0) {
+    // Şarkı çalma yoksa veya hata varsa
+    if (!data || !data.item) {
         io.emit('syncCommand', { command: 'stop' });
-        lastTrackUri = ''; 
+        lastTrackUri = null;
         currentVideoId = null;
-        currentTrackTitle = '';
+        currentTrackTitle = null;
         return;
     }
 
+    // Gerekli verileri çıkar
     const track = data.item;
     const isPlaying = data.is_playing;
     const progressMs = data.progress_ms;
@@ -203,15 +175,15 @@ io.on('connection', (socket) => {
     const albumImgUrl = track.album.images[0].url; 
     const durationMs = track.duration_ms;
 
+    // YENİ ŞARKI KONTROLÜ
     if (trackUri !== lastTrackUri) {
         lastTrackUri = trackUri;
         currentTrackTitle = trackTitle;
         
-        // Önbellekleme ve temizleme mantığı ile YouTube'dan videoID'yi çek
-        const videoId = await searchYoutube(trackTitle, trackUri); 
-        
+        const videoId = await searchYoutube(trackTitle);
         if (videoId) {
             currentVideoId = videoId;
+            // 'load' komutu tüm gerekli verileri içerir
             io.emit('syncCommand', { 
                 command: 'load', 
                 videoId: videoId,
@@ -222,31 +194,44 @@ io.on('connection', (socket) => {
             });
             return; 
         } else {
-            // YouTube'da bulunamadıysa veya kota dolduysa
             io.emit('syncCommand', { command: 'stop', trackTitle: `YouTube'da bulunamadı: ${trackTitle}` });
             return;
         }
     }
 
-    // Oynatma/Durdurma komutlarını sadece mevcut şarkı için gönder
+    // PLAY/PAUSE DURUM GÜNCELLEMESİ (KRİTİK GÜNCELLEME)
+    // Her play/pause komutunda tüm görsel verileri yeniden gönderiyoruz. 
+    // Bu, istemcinin görsel tutarlılığını garanti eder.
+    const basePayload = {
+        progress: progressMs,
+        duration: durationMs,
+        trackTitle: trackTitle,   // KRİTİK: EKLENDİ
+        albumImgUrl: albumImgUrl  // KRİTİK: EKLENDİ
+    };
+
     if (isPlaying) {
         io.emit('syncCommand', { 
             command: 'play',
-            progress: progressMs,
-            duration: durationMs
+            ...basePayload
         });
     } else {
         io.emit('syncCommand', { 
             command: 'pause',
-            progress: progressMs,
-            duration: durationMs 
+            ...basePayload
         });
     }
   });
-
-  socket.on('disconnect', () => {});
 });
 
-// Server'ı başlat
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+
+// Index.html'i sun
+app.get('/', (req, res) => {
+  // Bu durumda, index.html'i public klasöründen sunuyoruz
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
+
+// Sunucuyu başlat
+const port = process.env.PORT || 8888;
+server.listen(port, () => {
+  console.log(`Nowtify sunucusu http://localhost:${port} adresinde çalışıyor`);
+});
