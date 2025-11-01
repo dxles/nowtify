@@ -1,11 +1,11 @@
-// Server.js - SON VE KESİN ÇÖZÜM (HATA TESPİTİ LOG'U EKLENDİ)
+// Server.js - SON VE KESİN ÇÖZÜM
 
 import * as dotenv from 'dotenv';
 dotenv.config({ path: `${process.cwd()}/.env.local` });    
 
 import express from 'express';
 import fetch from 'node-fetch';
-import { createClient } from '@supabase/supabase-js';
+// Supabase kodları silindi, kullanılmadığı için sadeleştirildi
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
@@ -29,6 +29,7 @@ const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 const redirectUri = process.env.SPOTIFY_REDIRECT_URI;    
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
+// Global durum değişkenleri
 let lastTrackUri = null;
 let currentVideoId = null;
 let currentTrackTitle = null;
@@ -66,7 +67,10 @@ async function searchYoutube(query) {
     }
 }
 
-// ... (Geri kalan AUTH kodları aynı) ...
+
+/**
+ * Spotify yetkilendirme akışı için rastgele string üretme
+ */
 const generateRandomString = (length) => {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -76,6 +80,7 @@ const generateRandomString = (length) => {
     }
     return text;
 };
+
 
 app.get('/login', (req, res) => {
     if (!clientId || !clientSecret || !redirectUri) {
@@ -147,10 +152,10 @@ app.get('/callback', async (req, res) => {
         }
     }
 });
-// ... (Geri kalan AUTH kodları sonu) ...
+
 
 /**
- * SOCKET.IO Olay Yönetimi (Şarkı Değişim Gecikmesi Çözüldü)
+ * SOCKET.IO Olay Yönetimi (Veri Akışı Kontrolü)
  */
 io.on('connection', (socket) => {
     console.log('Yeni bir istemci bağlandı.');
@@ -183,6 +188,7 @@ io.on('connection', (socket) => {
         const isPlaying = data.is_playing;
         const progressMs = data.progress_ms;
         const trackUri = track.uri;
+        // Sanatçı ve Şarkı Adını birleştirme
         const trackTitle = `${track.artists.map(a=>a.name).join(', ')} - ${track.name}`; 
         const albumImgUrl = track.album.images[0].url;    
         const durationMs = track.duration_ms;
