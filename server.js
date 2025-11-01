@@ -2,6 +2,7 @@
 
 // .env.local dosyasını yüklüyoruz
 import * as dotenv from 'dotenv';
+// KRİTİK DÜZELTME: Doğru yolu kullanarak .env.local dosyasını yüklüyoruz.
 dotenv.config({ path: `${process.cwd()}/.env.local` });    
 
 import express from 'express';
@@ -12,15 +13,21 @@ import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
 import cookieParser from 'cookie-parser'; 
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// __dirname ve __filename simülasyonu
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Express setup
 const app = express();
 const server = http.createServer(app);
 const io = new SocketIO(server);
 
-app.use(cookieParser()); // KRİTİK: State_mismatch hatasını çözmek için
+app.use(cookieParser()); 
+
 // KRİTİK DÜZELTME: index.html ve diğer statik dosyaların public klasöründen sunulmasını sağlar.
-app.use(express.static(path.join(process.cwd(), 'public')));    
+app.use(express.static(path.join(__dirname, 'public')));    
 
 // Supabase setup
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -28,7 +35,6 @@ const supabaseKey = process.env.SUPABASE_KEY;
 
 if (!supabaseKey) {
     console.warn('UYARI: Supabase Key eksik veya hatalı.');
-    // throw new Error('Supabase Key eksik!'); // Hata fırlatmak yerine uyarı verelim.
 }
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -70,7 +76,9 @@ async function searchYoutube(query) {
 
         // İlk sonucu al ve video ID'sini döndür
         if (data.items && data.items.length > 0) {
-            return data.items[0].id.videoId;
+            // Sadece video türündekini al
+            const videoItem = data.items.find(item => item.id.kind === 'youtube#video');
+            return videoItem ? videoItem.id.videoId : null;
         }
         return null;
     } catch (error) {
@@ -81,7 +89,7 @@ async function searchYoutube(query) {
 
 
 /**
- * Spotify yetkilendirme akışı
+ * Spotify yetkilendirme akışı için rastgele string üretme
  */
 const generateRandomString = (length) => {
     let text = '';
@@ -95,6 +103,10 @@ const generateRandomString = (length) => {
 
 
 app.get('/login', (req, res) => {
+    if (!clientId || !clientSecret || !redirectUri) {
+         return res.status(500).send("Lütfen .env.local dosyasındaki Spotify kimlik bilgilerini kontrol edin.");
+    }
+    
     const state = generateRandomString(16);
     res.cookie(stateKey, state);
 
@@ -118,7 +130,6 @@ app.get('/callback', async (req, res) => {
     const storedState = req.cookies ? req.cookies[stateKey] : null;
 
     if (state === null || state !== storedState) {
-        // state_mismatch hatası, client'ı /?error=state_mismatch adresine yönlendir.
         res.clearCookie(stateKey);
         res.redirect('/?error=' + querystring.stringify({
             error: 'state_mismatch'
@@ -127,8 +138,8 @@ app.get('/callback', async (req, res) => {
         res.clearCookie(stateKey);
         const authOptions = {
             method: 'POST',
+            // KRİTİK DÜZELTME: Node.js Buffer'ı ile Basic Auth oluşturma
             headers: {
-                // KRİTİK DÜZELTME: Node.js Buffer'ı ile Basic Auth oluşturma
                 'Authorization': 'Basic ' + (Buffer.from(clientId + ':' + clientSecret).toString('base64')),
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
@@ -154,7 +165,6 @@ app.get('/callback', async (req, res) => {
             // Başarılı. Access token ile ana sayfaya yönlendir. (Token HASH içinde)
             res.redirect('/#' + querystring.stringify({
                 access_token: accessToken,
-                // Spotify genellikle expires_in de döndürür, eklemek faydalı olabilir
                 expires_in: tokenData.expires_in 
             }));
 
@@ -169,7 +179,7 @@ app.get('/callback', async (req, res) => {
 
 
 /**
- * SOCKET.IO Olay Yönetimi (KRİTİK BÖLÜM)
+ * SOCKET.IO Olay Yönetimi (KRİTİK BÖLÜM - Şarkı Değişim Gecikmesi Çözüldü)
  */
 io.on('connection', (socket) => {
     console.log('Yeni bir istemci bağlandı.');
@@ -195,18 +205,27 @@ io.on('connection', (socket) => {
         const isPlaying = data.is_playing;
         const progressMs = data.progress_ms;
         const trackUri = track.uri;
-        const trackTitle = `${track.artists.map(a=>a.name).join(', ')} - ${track.name}`;
+        // Sanatçı ve Şarkı Adını birleştirme
+        const trackTitle = `${track.artists.map(a=>a.name).join(', ')} - ${track.name}`; 
         const albumImgUrl = track.album.images[0].url;    
         const durationMs = track.duration_ms;
 
         // YENİ ŞARKI KONTROLÜ
         if (trackUri !== lastTrackUri) {
-            lastTrackUri = trackUri;
-            currentTrackTitle = trackTitle;
             
+            // KRİTİK ÇÖZÜM: Yeni şarkı için YouTube'da arama yap.
+            // Arama bitene kadar (eski) lastTrackUri'yi değiştirmeyiz, böylece
+            // arama sırasında ekranda "Şarkı Oynatılamıyor" yazmaz.
+
+            console.log(`Yeni şarkı tespit edildi: ${trackTitle}. YouTube aranıyor...`);
             const videoId = await searchYoutube(trackTitle);
+
             if (videoId) {
+                // Arama başarılı, şimdi global durumu güncelle
+                lastTrackUri = trackUri; 
                 currentVideoId = videoId;
+                currentTrackTitle = trackTitle;
+                
                 // 'load' komutu tüm gerekli verileri içerir
                 io.emit('syncCommand', {    
                     command: 'load',    
@@ -218,17 +237,21 @@ io.on('connection', (socket) => {
                 });
                 return;    
             } else {
-                io.emit('syncCommand', { command: 'stop', trackTitle: `YouTube'da bulunamadı: ${trackTitle}` });
+                // YouTube'da bulunamazsa, durdurma komutu gönder
+                io.emit('syncCommand', { command: 'stop' });
+                lastTrackUri = null; // URI'yı temizle ki tekrar aramayı denesin
                 return;
             }
         }
 
-        // PLAY/PAUSE DURUM GÜNCELLEMESİ (KRİTİK GÜNCELLEME)
+        // PLAY/PAUSE DURUM GÜNCELLEMESİ (Sadece mevcut şarkının durumu değiştiyse)
         const basePayload = {
             progress: progressMs,
             duration: durationMs,
             trackTitle: trackTitle,    
-            albumImgUrl: albumImgUrl    
+            albumImgUrl: albumImgUrl,
+            // Ekstra garanti
+            videoId: currentVideoId 
         };
 
         if (isPlaying) {
@@ -245,14 +268,6 @@ io.on('connection', (socket) => {
     });
 });
 
-
-// KRİTİK DÜZELTME: express.static('public') kullanıldığı için 
-// bu özel rotaya gerek kalmadı ve kaldırıldı.
-/*
-app.get('/', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
-});
-*/
 
 // Sunucuyu başlat
 const port = process.env.PORT || 8888;
