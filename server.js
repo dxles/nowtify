@@ -1,11 +1,11 @@
-// Server.js - SON VE KESİN ÇÖZÜM (Supabase ve Tüm Bileşenler Entegre Edildi)
+// Server.js - SON VE KESİN ÇÖZÜM (index.html ROOT DİZİNİNDEN HİZMET VERİYOR)
 
 import * as dotenv from 'dotenv';
 dotenv.config({ path: `${process.cwd()}/.env.local` });    
 
 import express from 'express';
 import fetch from 'node-fetch';
-import { createClient } from '@supabase/supabase-js'; // SUPABASE GEREKLİ
+import { createClient } from '@supabase/supabase-js'; 
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import querystring from 'querystring';
@@ -21,6 +21,9 @@ const server = http.createServer(app);
 const io = new SocketIO(server);
 
 app.use(cookieParser()); 
+
+// KRİTİK DEĞİŞİKLİK: Sadece public içindeki favicon ve socket.io gibi diğer statik dosyaları sunar.
+// index.html artık ana route'ta özel olarak sunulacak.
 app.use(express.static(path.join(__dirname, 'public')));    
 
 // API Anahtarları
@@ -33,7 +36,6 @@ const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 
-// Hata kontrolü: Supabase key'leri eksikse, bağlantı null kalır, ama uygulama devam eder.
 if (!supabaseKey || !supabaseUrl) {
     console.warn('UYARI: Supabase Key veya URL eksik. YouTube önbelleklemesi (caching) KULLANILMAYACAK.');
 }
@@ -46,6 +48,13 @@ let currentVideoId = null;
 let currentTrackTitle = null;
 
 const stateKey = 'spotify_auth_state';
+
+// KRİTİK: Ana route'a özel olarak index.html'i Root dizininden sunar.
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ... (Geri kalan tüm fonksiyonlar ve rotalar aynı kalır) ...
 
 /**
  * YouTube'da şarkıyı arama ve Supabase'den önbellek kontrolü
@@ -65,11 +74,9 @@ async function searchYoutube(query, trackId) {
                 return data.video_id;
             }
         } catch (error) {
-            // Önbellek okuma hatası olsa bile aramaya devam etmeli
             // console.error('[SUPABASE] Önbellek okuma hatası:', error.message);
         }
     }
-
 
     // 2. YouTube API ile ara
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${youtubeApiKey}&maxResults=1`;
@@ -84,7 +91,6 @@ async function searchYoutube(query, trackId) {
         const data = await response.json();
 
         if (!response.ok) {
-            // 403 (Kota) veya 400 (Yanlış istek) gibi hataları yakalar
             console.error(`YouTube API hatası (${response.status}):`, data.error ? data.error.message : 'Bilinmeyen Hata');
             return null;
         }
@@ -104,7 +110,6 @@ async function searchYoutube(query, trackId) {
                     if (error) throw error;
                     console.log(`[SUPABASE] Yeni sonuç önbelleğe kaydedildi: ${trackId}`);
                 } catch (error) {
-                    // Kayıt hatası önemli değil, senkronizasyon devam etmeli
                     // console.error('[SUPABASE] Önbellek yazma hatası:', error.message);
                 }
             }
@@ -241,7 +246,6 @@ io.on('connection', (socket) => {
             
             console.log(`Yeni şarkı tespit edildi: ${trackTitle}. YouTube aranıyor (Önbellek Kontrolü Dahil)...`);
             
-            // Supabase entegreli arama fonksiyonu
             const videoId = await searchYoutube(trackTitle, trackId); 
 
             if (videoId) {
