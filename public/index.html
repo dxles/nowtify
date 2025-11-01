@@ -59,8 +59,8 @@ body{
     align-items: center;
     justify-content: center;
     text-align: center;
-    /* Main'in flex container olması için display:flex'i kaldırıp body'den almalı */
-    /* Ancak bu kod main'i flex yapmaya çalışıyor. Başlangıçtaki gizli ayarı koruyalım. */
+    display: flex; 
+    flex-direction: column;
 }
 
 /* Sanatçı Adı */
@@ -73,7 +73,8 @@ body{
 }
 
 #player-container {
-    width: 0;
+    /* Oynatıcı gizli kalmalı */
+    width: 0; 
     height: 0;
     position: absolute;
     overflow: hidden;
@@ -122,14 +123,14 @@ body{
     margin: 0 auto;
 }
 
-/* GÜNCELLENMİŞ STİL: Equalizer */
+/* Equalizer (Sol Alta Alındı ve Hız Yavaşlatıldı) */
 #visualizer {
     position: absolute;
     bottom: 20px;
-    left: 20px; /* Sola alındı */
+    left: 20px; 
     width: 40px;
     height: 40px;
-    display: none;    
+    display: none; /* Başlangıçta gizli */  
     align-items: flex-end;
     justify-content: space-between;
     z-index: 15;
@@ -244,14 +245,13 @@ const artistNameDisplay = document.getElementById('artist-name');
 let token = null;
 
 // KRİTİK DEĞİŞKENLER
-let duration = 0; // Şarkı süresi (ms)
+let duration = 0; 
 let player = null;
 let playerReady = false;    
-let smoothUpdateInterval = null; // Akıcı ilerleme için
-let lastProgressMs = 0; // Spotify'dan gelen son ilerleme (ms)
-let lastTimestamp = 0;    // Son ilerlemenin alındığı zaman (Date.now())
-let isPlaying = false;    // Şu an çalıyor mu?
-
+let smoothUpdateInterval = null; 
+let lastProgressMs = 0; 
+let lastTimestamp = 0;    
+let isPlaying = false;    
 
 // Zaman formatlama fonksiyonu
 function formatTime(ms) {
@@ -262,7 +262,7 @@ function formatTime(ms) {
 }
 
 function renderNoTrack() {
-    albumImg.src = '/favicon.ico'; // URL düzeltildi
+    albumImg.src = '/favicon.ico';
     document.getElementById('track-title').innerText = 'Şu an bir şey çalmıyor...';
     artistNameDisplay.innerText = '';    
     progressBar.style.width = '0%';
@@ -271,7 +271,7 @@ function renderNoTrack() {
     background.style.background = 'none';
     background.style.backgroundColor = '#121212';
     visualizer.style.display = 'none';    
-    isPlaying = false; // Çalmayı durdur
+    isPlaying = false; 
 }
 
 // ------------------------------------------------------------------
@@ -279,32 +279,28 @@ function renderNoTrack() {
 // ------------------------------------------------------------------
 
 function startSmoothUpdate() {
-    if (smoothUpdateInterval) return; // Zaten çalışıyorsa tekrar başlatma
+    if (smoothUpdateInterval) return; 
 
     smoothUpdateInterval = setInterval(() => {
-        // Çalmıyorsa veya süreler hazır değilse dur
         if (!isPlaying || duration <= 0 || !playerReady) {
             clearInterval(smoothUpdateInterval);
             smoothUpdateInterval = null;
             return;
         }
 
-        // Geçen süre (ms)
         const elapsedTime = Date.now() - lastTimestamp;
         let currentProgress = lastProgressMs + elapsedTime;
         
-        // Şarkı bitiş kontrolü
         if (currentProgress >= duration) {
             currentProgress = duration;    
             isPlaying = false;
         }
 
-        // Görsel Güncelleme
         const percentage = (currentProgress / duration) * 100;
         progressBar.style.width = `${percentage}%`;
         currentTimeDisplay.innerText = formatTime(currentProgress);
         
-    }, 250); // Her 250ms'de bir akıcı güncelleme
+    }, 250);
 }
 
 // ------------------------------------------------------------------
@@ -321,7 +317,8 @@ function onYouTubeIframeAPIReady() {
             'autoplay': 1,
             'controls': 0,
             'enablejsapi': 1,
-            'origin': window.location.origin    
+            'origin': window.location.origin,
+            'mute': 1 // Tarayıcı kısıtlamaları için sessiz başlat
         },
         events: {
             'onReady': onPlayerReady,    
@@ -332,23 +329,20 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerReady(event) {
     playerReady = true;    
-    console.log("YouTube Oynatıcısı Hazır.");
-    // Başlangıçta oynatıcıyı sessize al (autoplay kısıtlamaları için yaygın bir çözüm)
-    player.mute(); 
+    console.log("YouTube Oynatıcısı Hazır. Otomatik oynatma için sessiz başlatıldı.");
 }
 
 function onPlayerStateChange(event) {
-    // Şarkı çalarken equalizer'ı göster, duraklatıldığında gizle
+    // Equalizer, YouTube'da oynatılıyorsa gösterilir.
     if (event.data === YT.PlayerState.PLAYING) {
         visualizer.style.display = 'flex';
-        // Sessizliği açmak veya kapamak burada sunucudan gelen duruma bağlı olmalı
     } else {
         visualizer.style.display = 'none';
     }
 }
 
 // ------------------------------------------------------------------
-// SOCKET.IO İstemci Kodu
+// SOCKET.IO İstemci Kodu (Equalizer ve Ses Kontrolü Güçlendirildi)
 // ------------------------------------------------------------------
 
 const socket = io();
@@ -356,7 +350,6 @@ const socket = io();
 // GÜÇLENDİRİLMİŞ handleSyncCommand
 function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, durationMs) {
     
-    // YENİ PROGRESS DEĞİŞKENLERİNİ AYARLA
     lastProgressMs = progress;
     lastTimestamp = Date.now();
     duration = durationMs;
@@ -382,58 +375,55 @@ function handleSyncCommand(command, videoId, progress, trackTitle, albumImgUrl, 
     // Komutları İşle
     switch (command) {
         case 'load':
-            // Yeni şarkı yüklendiğinde, ilerlemeyi sıfırla ve yükle
             player.loadVideoById({
                 'videoId': videoId,
                 'startSeconds': Math.floor(progress / 1000)    
             });
             isPlaying = true;
-            startSmoothUpdate(); // Akıcı ilerlemeyi başlat
+            startSmoothUpdate(); 
+            // KRİTİK: YENİ ŞARKI YÜKLENDİĞİNDE MUTE AÇILIR
+            if (player.isMuted()) { player.unMute(); } 
+            visualizer.style.display = 'flex';
             break;
 
         case 'play':
-            
             isPlaying = true;
-            startSmoothUpdate(); // Akıcı ilerlemeyi başlat (Zaten çalışıyorsa sorun yok)
+            startSmoothUpdate(); 
 
-            // YOUTUBE VE SPOTIFY SÜRELERİNİ KARŞILAŞTIR (Seek Zorlaması)
             if (typeof player.getCurrentTime === 'function') {
-                const spotifyTime = Math.floor(progress / 1000); // Saniye
-                const youtubeTime = Math.floor(player.getCurrentTime()); // Saniye
-                // Senkronizasyon farkını 1 saniyede tutmak yeterli
+                const spotifyTime = Math.floor(progress / 1000); 
+                const youtubeTime = Math.floor(player.getCurrentTime()); 
                 const diff = Math.abs(spotifyTime - youtubeTime);    
                 
-                // KRİTİK: Fark 1 saniyeden fazlaysa VEYA YouTube durmuşsa (oynatmıyorsa)
+                // KRİTİK: Senkronizasyon zorlaması ve oynat
                 if (diff > 1 || player.getPlayerState() !== 1) {    
                     console.log(`RESYNC ZORLAMA (SEEK/PLAY): Fark ${diff}s. Seeking to ${spotifyTime}s.`);
                     player.seekTo(spotifyTime, true);    
-                    player.playVideo();    
-                    return;    
                 }
             }
             
-            // Normal oynat (Zaten oynatıyor olmalı, bu sadece bir garanti)
-            if (player.getPlayerState() !== 1) {    
-                player.playVideo();
-            }
+            // KRİTİK: PLAY KOMUTU GELDİĞİNDE MUTE AÇILIR VE OYNATILIR
+            if (player.isMuted()) { player.unMute(); } 
+            player.playVideo();
+            visualizer.style.display = 'flex';
             break;
 
         case 'pause':
-            // KRİTİK DÜZELTME: Durdurma komutu geldiğinde YouTube'u kesinlikle durdur.
-            isPlaying = false; // Akıcı ilerlemeyi durdurur
+            isPlaying = false; 
 
             if (typeof player.pauseVideo === 'function') {
                 player.pauseVideo();
             }
-            // Progress bar'ı da son pozisyonda bir kere güncelle
+            // Progress bar'ı duraklama pozisyonunda güncelle
             progressBar.style.width = `${(progress / duration) * 100}%`;
             currentTimeDisplay.innerText = formatTime(progress);
+
+            visualizer.style.display = 'none';
 
             break;
             
         case 'stop':
-            // Durdurma/Şarkı yok komutu
-            isPlaying = false; // Akıcı ilerlemeyi durdurur
+            isPlaying = false; 
             if (typeof player.pauseVideo === 'function') {
                 player.pauseVideo();
             }
@@ -452,15 +442,14 @@ socket.on('syncCommand', (data) => {
 // ------------------------------------------------------------------
 
 async function fetchTrack(t){
-    // Hata veren URL düzeltildi (Gerçek Spotify API endpointi varsayılarak)
+    // Mock URL'ler gerçek Spotify API endpointi varsayılarak bırakıldı
     const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing',{    
         headers:{Authorization:`Bearer ${t}`}
     });
-    // Hata durumlarını kontrol et
-    if(r.status===204) return null; // İçerik Yok (Çalmıyor)
+    
+    if(r.status===204) return null; 
     if(r.status===401) {    
-        console.error("Tokenin süresi dolmuş veya geçersiz. Lütfen tekrar giriş yapın.");
-        // Gerekirse kullanıcıyı login sayfasına yönlendir
+        console.error("Tokenin süresi dolmuş veya geçersiz.");
         window.location.href = '/login'; 
         return null;
     }
@@ -471,32 +460,24 @@ async function fetchTrack(t){
     return await r.json();
 }
 
-// KRİTİK DÜZELTME: TOKEN OKUMA MANTIĞI BURADA DEĞİŞTİ.
 window.onload = async ()=>{
-    // *** DÜZELTME: Tokeni URL'nin hash (#) kısmından oku ***
-    
-    // Hash kısmını al (# dahil) ve # işaretini kaldır.
+    // KRİTİK DÜZELTME: Tokeni URL'nin hash (#) kısmından oku
     const hash = window.location.hash.substring(1); 
-    // Hash'i parse et (Burada query string gibi davranır)
     const params = new URLSearchParams(hash);
-    
     token = params.get('access_token');
     
-    // URL'den tokeni aldıktan sonra hash'i temizle
     if (token) {
         window.location.hash = ''; 
     }
-    // ********************************************************
     
     if(token){
-        // Başarılı giriş: Login ekranını gizle ve ana ekranı göster
+        // Başarılı giriş: Ekranları değiştir
         loginContainer.style.opacity='0';
         setTimeout(()=>{
             loginContainer.style.display='none';
         }, 500);
-        main.style.display='flex'; // Ana ekranı göster
+        main.style.display='flex'; 
     } else {
-        // Token yoksa, ana ekranın başlangıçta gizli kaldığından emin ol
         main.style.display='none';
     }
 
@@ -506,15 +487,16 @@ window.onload = async ()=>{
             socket.emit('statusUpdate', null);
             return;
         }
+        
         const data = await fetchTrack(token);
         
         if(!data || !data.item){
-            renderNoTrack();
+            // Sadece çalmama durumu değilse renderNoTrack yap. 
+            // Aksi halde Spotify durumunu temizle.
             socket.emit('statusUpdate', null);
             return;
         }
 
-        // Bu bilgilerin hepsi server'a Socket.IO ile gönderiliyor.
         socket.emit('statusUpdate', data);
     }
 
