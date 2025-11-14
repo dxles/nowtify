@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+
+<html lang="tr">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Nowtify</title>
+
+</head>
+
+<body>
+
+
+
+<style>
+
+
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+
+
+:root {
+
+--dominant-color: #1db954;
+
+--dominant-color-rgba-light: rgba(29, 185, 84, 0.5);
+
+--dominant-color-rgba-strong: rgba(29, 185, 84, 0.8);
+
+}
+
+
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+
+
+body{
+
+font-family:'Montserrat',sans-serif;
+
+overflow:hidden;
+
+background:#121212;
+
+color:#fff;
+
+height:100vh;
+
+display:flex;
+
+justify-content:flex-start;
+
+align-items:center;
+
+pointer-events: none;
+
+}
+
+
+
+#login-container {
+
+pointer-events: auto !important;
+
+z-index: 999999;
+
+}
+
+#login-container * {
+
+pointer-events: auto !important;
+
+}
+
+
+
+#background{
+
+position:absolute;
+
+top:0; left:0; width:100%; height:100%;
+
+background-size:cover;
+
+background-position:center;
+
+filter:blur(30px) brightness(0.4);
+
+z-index:0;
+
+transition: all 0.5s ease;
+
+}
+
+
+
+#main{
+
+position:relative;
+
+display:flex;
+
+align-items:center;
+
+margin-left:50px;
+
+z-index:1;
+
+opacity:1;
+
+transition: opacity 0.5s ease, transform 0.1s ease;
+
+display:none;
+
+}
+
+
+
+#album-img{
+
+width:250px;
+
+border-radius:15px;
+
+box-shadow:0 20px 50px rgba(0,0,0,0.7);
+
+transition: transform 0.1s ease, box-shadow 0.05s ease;
+
+}
+
+
+
+.is-playing #main {
+
+transition: transform 0.05s ease;
+
+}
+
+
+
+#info{
+
+margin-left:40px;
+
+display:flex;
+
+flex-direction:column;
+
+justify-content:center;
+
+}
+
+
+
+#song-name{ font-size:2em; font-weight:700; margin-bottom:10px; }
+
+#artist{ font-size:1.2em; }
+
+
+
+#progress-container {
+
+margin-top: 15px;
+
+width: 300px;
+
+}
+
+#progress{
+
+width:100%; height:10px; background:rgba(255,255,255,0.2); border-radius:5px; overflow:hidden;
+
+}
+
+#progress-bar{
+
+height:100%; width:0%; background:var(--dominant-color); transition:width 0.1s linear;
+
+}
+
+
+
+#time-info {
+
+display: flex;
+
+justify-content: space-between;
+
+font-size: 0.85em;
+
+color: #bbb;
+
+margin-top: 5px;
+
+}
+
+
+
+#equalizer-container {
+
+position: fixed;
+
+bottom: 120px;
+
+left: 40px;
+
+z-index: 1;
+
+display: flex;
+
+align-items: flex-end;
+
+height: 30px;
+
+width: 60px;
+
+opacity: 0;
+
+transition: opacity 0.5s ease;
+
+}
+
+.is-playing #equalizer-container {
+
+opacity: 1;
+
+}
+
+.bar {
+
+width: 8px;
+
+height: 5px;
+
+background-color: var(--dominant-color);
+
+margin: 0 2px;
+
+display: inline-block;
+
+border-radius: 1px;
+
+transform-origin: bottom;
+
+transition: height 0.05s linear, background-color 0.5s ease;
+
+}
+
+
+
+
+
+#lyrics-container {
+
+position: fixed;
+
+top: 50%;
+
+right: 50px;
+
+transform: translateY(-50%);
+
+width: 600px;
+
+height: 80vh;
+
+max-height: 700px;
+
+overflow-y: scroll;
+
+padding: 20px 0;
+
+z-index: 1;
+
+opacity: 0;
+
+transition: opacity 0.5s ease;
+
+pointer-events: none;
+
+}
+
+.is-playing #lyrics-container {
+
+opacity: 1;
+
+}
+
+
+
+#lyrics-container::-webkit-scrollbar {
+
+width: 6px;
+
+}
+
+#lyrics-container::-webkit-scrollbar-thumb {
+
+background: var(--dominant-color);
+
+border-radius: 3px;
+
+}
+
+
+
+.lyric-line {
+
+font-size: 1.5em;
+
+font-weight: 500;
+
+color: #888;
+
+margin-bottom: 30px;
+
+line-height: 1.4;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.lyric-active {
+
+font-size: 2em;
+
+color: #fff;
+
+font-weight: 630;
+
+transform: translateX(0px);
+
+}
+
+.lyric-line:last-child {
+
+margin-bottom: 300px;
+
+}
+
+
+
+.video-active #lyrics-container {
+
+opacity: 0 !important;
+
+}
+
+
+
+#youtube-player-container {
+
+position: fixed;
+
+top: 50%;
+
+left: 50%;
+
+transform: translate(-50%, -50%);
+
+z-index: 10;
+
+width: 90vw;
+
+max-width: 800px;
+
+height: 50vw;
+
+max-height: 450px;
+
+display: none;
+
+box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+
+opacity: 0;
+
+transition: opacity 1.2s ease-in-out;
+
+}
+
+
+
+.video-active #main,
+
+.video-active #background,
+
+.video-active #equalizer-container,
+
+.video-active #lyrics-container {
+
+opacity: 0 !important;
+
+visibility: hidden;
+
+transition: opacity 0.5s ease, visibility 0.5s linear 0.5s;
+
+}
+
+.video-active #youtube-player-container {
+
+opacity: 1;
+
+transition-delay: 0.5s;
+
+}
+
+
+
+#video-toggle-btn {
+
+position: fixed;
+
+bottom: 30px;
+
+left: 30px;
+
+z-index: 20;
+
+background: rgba(255, 255, 255, 0.15);
+
+color: white;
+
+border: 1px solid rgba(255, 255, 255, 0.3);
+
+padding: 10px 20px;
+
+border-radius: 50px;
+
+cursor: pointer;
+
+font-size: 1em;
+
+font-weight: 700;
+
+backdrop-filter: blur(5px);
+
+transition: all 0.3s ease;
+
+display: none;
+
+pointer-events: auto;
+
+}
+
+#video-toggle-btn:hover {
+
+background: rgba(255, 255, 255, 0.3);
+
+}
+
+
+
+#login-container{
+
+position:fixed;
+
+top:50%;
+
+left:50%;
+
+transform:translate(-50%,-50%);
+
+display:flex;
+
+justify-content:center;
+
+align-items:center;
+
+flex-direction:column;
+
+transition: opacity 0.5s ease;
+
+text-align: center;
+
+}
+
+
+
+#login{
+
+background:var(--dominant-color);
+
+border:none;
+
+padding:18px 50px;
+
+border-radius:50px;
+
+font-size:22px;
+
+cursor:pointer;
+
+box-shadow:0 10px 30px rgba(0,0,0,0.5);
+
+transition: all 0.3s ease;
+
+}
+
+#login:hover{
+
+transform: scale(1.1);
+
+box-shadow:0 15px 40px rgba(0,0,0,0.7);
+
+}
+
+
+
+/* YENİ SES AÇMA DÜĞMESİ STİLİ */
+
+#unmute-btn {
+
+position: fixed;
+
+bottom: 30px;
+
+right: 30px;
+
+padding: 10px 20px;
+
+background: #FF4136;
+
+color: white;
+
+border: none;
+
+border-radius: 50px;
+
+cursor: pointer;
+
+font-weight: 700;
+
+z-index: 1000;
+
+display: none;
+
+pointer-events: auto;
+
+box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+
+transition: all 0.3s ease;
+
+}
+
+#unmute-btn:hover {
+
+background: #E83228;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+
+
+<div id="background"></div>
+
+
+
+<div id="main">
+
+<img id="album-img" src="" alt="Albüm Kapağı">
+
+<div id="info">
+
+<div id="song-name"></div>
+
+<div id="artist"></div>
+
+<div id="progress-container">
+
+<div id="progress"><div id="progress-bar"></div></div>
+
+<div id="time-info">
+
+<span id="current-time">0:00</span>
+
+<span id="total-duration">0:00</span>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<div id="equalizer-container">
+
+<div class="bar"></div>
+
+<div class="bar"></div>
+
+<div class="bar"></div>
+
+<div class="bar"></div>
+
+</div>
+
+
+
+<div id="login-container">
+
+<h1 style="color: #1DB954; margin-bottom: 20px;">NOWTIFY PRO</h1>
+
+<button id="login" onclick="window.location.href='/login'">Kendi Hesabımla Spotify'a Giriş Yap (Kumanda)</button>
+
+<p style="margin-top: 10px; color: #bbb; max-width: 300px;">Spotify kumanda, ses YouTube'dan gelecektir. Giriş yapan sadece kumanda eder.</p>
+
+</div>
+
+
+
+<div id="youtube-player-container">
+
+<div id="youtube-player"></div>
+
+</div>
+
+
+
+<button id="video-toggle-btn">Video Göster</button>
+
+
+
+<button id="unmute-btn">Ses</button> <div id="lyrics-container">
+
+</div>
+
+
+
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.min.js"></script>
+
+<script>
+
+// =====================================================================================
+
+// JAVASCRIPT KISMI (Lyrics Kaydırma ve Equalizer Düzeltmeleri Uygulanmıştır)
+
+// =====================================================================================
+
+const socket = io();
+
+
+
+const albumImg = document.getElementById('album-img');
+
+const songName = document.getElementById('song-name');
+
+const artist = document.getElementById('artist');
+
+const progressBar = document.getElementById('progress-bar');
+
+const currentTimeDisplay = document.getElementById('current-time');
+
+const totalDurationDisplay = document.getElementById('total-duration');
+
+const background = document.getElementById('background');
+
+const main = document.getElementById('main');
+
+const loginContainer = document.getElementById('login-container');
+
+const playerContainer = document.getElementById('youtube-player-container');
+
+const toggleVideoBtn = document.getElementById('video-toggle-btn');
+
+const equalizerBars = document.querySelectorAll('#equalizer-container .bar');
+
+const lyricsContainer = document.getElementById('lyrics-container');
+
+const unmuteBtn = document.getElementById('unmute-btn');
+
+
+
+let duration = 0;
+
+let token = null;
+
+let player;
+
+let isPlayerReady = false;
+
+let isPlaying = false;
+
+let lrcData = [];
+
+let currentLyricIndex = -1;
+
+let lyricInterval;
+
+let bassInterval;
+
+const maxBarHeight = 30;
+
+const colorThief = new ColorThief();
+
+let dominantColor = [29, 185, 84];
+
+let lastScrolledIndex = -1; // YENİ: Gereksiz kaydırmayı önlemek için
+
+
+
+function formatTime(ms) {
+
+const totalSeconds = Math.floor(ms / 1000);
+
+const minutes = Math.floor(totalSeconds / 60);
+
+const seconds = totalSeconds % 60;
+
+return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+}
+
+
+
+function getDominantColor(imgElement) {
+
+if (!imgElement.complete || imgElement.naturalHeight === 0) return;
+
+try {
+
+const color = colorThief.getColor(imgElement);
+
+dominantColor = color;
+
+document.documentElement.style.setProperty('--dominant-color', `rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+
+document.documentElement.style.setProperty('--dominant-color-rgba-light', `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.5)`);
+
+document.documentElement.style.setProperty('--dominant-color-rgba-strong', `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.8)`);
+
+} catch (e) { dominantColor = [29, 185, 84]; }
+
+}
+
+
+
+// 🎶 EQUALIZER / BASS TAKİBİ DÜZELTİLDİ
+
+function simulateBassEffect() {
+
+if (!isPlaying || document.body.classList.contains('video-active')) return;
+
+
+// Daha canlı ve dinamik bass simülasyonu
+
+const bassLevel = Math.random() * 0.4 + 0.6; // 0.6 ile 1.0 arasında rastgele bir değer
+
+const scaleFactor = 1 - (1 - bassLevel) * 0.005; // Albüm kapağında hafif titreme
+
+
+main.style.transform = `scale(${scaleFactor})`;
+
+// Album kapağı gölgesinde hafif oynama
+
+albumImg.style.boxShadow = `0 20px ${50 * bassLevel}px rgba(0,0,0,0.7)`;
+
+
+equalizerBars.forEach((bar, index) => {
+
+// Her bara farklı bir rastgelelik kat
+
+const randomFactor = (Math.random() * 0.5 + 0.5);
+
+const barHeight = Math.max(5, Math.floor(maxBarHeight * bassLevel * randomFactor));
+
+
+// Eşitleme çubuklarının yüksekliğini ayarla
+
+bar.style.height = `${barHeight}px`;
+
+
+// Çubukların rengini dominant renge ayarla
+
+bar.style.backgroundColor = `rgb(${dominantColor[0]}, ${dominantColor[1]}, ${dominantColor[2]})`;
+
+});
+
+}
+
+
+
+function startBassSimulation() {
+
+if (bassInterval) clearInterval(bassInterval);
+
+// Daha hızlı güncelleme, daha akıcı bass etkisi
+
+bassInterval = setInterval(simulateBassEffect, 40);
+
+}
+
+
+
+function stopBassSimulation() {
+
+if (bassInterval) clearInterval(bassInterval);
+
+bassInterval = null;
+
+main.style.transform = `scale(1)`;
+
+albumImg.style.boxShadow = `0 20px 50px rgba(0,0,0,0.7)`;
+
+equalizerBars.forEach(bar => {
+
+bar.style.height = '5px';
+
+bar.style.backgroundColor = 'var(--dominant-color)';
+
+});
+
+}
+
+
+
+function parseLRC(lrcText) {
+
+const lines = lrcText.trim().split('\n');
+
+const parsedData = [];
+
+lines.forEach(line => {
+
+const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/);
+
+if (timeMatch) {
+
+const minutes = parseInt(timeMatch[1], 10);
+
+const seconds = parseInt(timeMatch[2], 10);
+
+const milliseconds = parseInt(timeMatch[3].padEnd(3, '0'), 10);
+
+const totalMs = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
+
+const text = line.replace(/\[.*?\]/g, '').trim();
+
+if (text) {
+
+parsedData.push({ time: totalMs, text: text });
+
+}
+
+}
+
+});
+
+return parsedData.sort((a, b) => a.time - b.time);
+
+}
+
+
+
+function renderLyrics(data) {
+
+lrcData = data;
+
+lyricsContainer.innerHTML = '';
+
+currentLyricIndex = -1;
+
+lastScrolledIndex = -1; // Sıfırla
+
+
+
+if (lrcData.length === 0) {
+
+lyricsContainer.innerHTML = `<div class="lyric-line" style="text-align:center;">Şarkı sözü bulunamadı veya LRC formatında değil.</div>`;
+
+return;
+
+}
+
+lrcData.forEach((item, index) => {
+
+const line = document.createElement('div');
+
+line.classList.add('lyric-line');
+
+line.textContent = item.text;
+
+line.dataset.index = index;
+
+lyricsContainer.appendChild(line);
+
+});
+
+
+// Yeni şarkıda lyrics yumuşak bir şekilde en başa gelsin
+
+lyricsContainer.scrollTo({
+
+top: 0,
+
+behavior: 'smooth'
+
+});
+
+}
+
+
+
+// 📜 LYRICS KAYDIRMA VE SENKRONİZASYON DÜZELTİLDİ
+
+function syncLyrics() {
+
+if (lrcData.length === 0 || !player || player.getPlayerState() !== YT.PlayerState.PLAYING) return;
+
+const progressMs = player.getCurrentTime() * 1000;
+
+let newIndex = -1;
+
+
+
+// Aktif satırı bul
+
+for (let i = 0; i < lrcData.length; i++) {
+
+// Bir sonraki satırın zamanı, mevcut progressten 50ms fazla değilse, mevcut satır aktiftir.
+
+if (i + 1 >= lrcData.length || lrcData[i + 1].time > progressMs + 50) {
+
+newIndex = i;
+
+break;
+
+}
+
+}
+
+
+
+if (newIndex >= 0 && newIndex !== currentLyricIndex) {
+
+// Vurguyu kaldır ve yenisini ekle
+
+const oldActive = document.querySelector('.lyric-active');
+
+if (oldActive) { oldActive.classList.remove('lyric-active'); }
+
+
+
+currentLyricIndex = newIndex;
+
+const newActive = document.querySelector(`.lyric-line[data-index="${newIndex}"]`);
+
+
+
+if (newActive) {
+
+newActive.classList.add('lyric-active');
+
+
+// Eğer yeni bir satıra geçildiyse kaydırma yap
+
+if (newIndex !== lastScrolledIndex) {
+
+const containerHeight = lyricsContainer.clientHeight;
+
+
+// Satırı ortalamak için hedef pozisyon (görseldeki gibi ortalama/orta üst hizalama)
+
+const lineOffset = newActive.offsetTop - (containerHeight / 2) + (newActive.clientHeight / 2);
+
+
+
+lyricsContainer.scrollTo({
+
+top: lineOffset,
+
+behavior: 'smooth'
+
+});
+
+
+lastScrolledIndex = newIndex;
+
+}
+
+}
+
+}
+
+}
+
+
+
+function startLyricSync() {
+
+if (lyricInterval) clearInterval(lyricInterval);
+
+lyricInterval = setInterval(syncLyrics, 100);
+
+if(player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+
+syncLyrics();
+
+}
+
+}
+
+
+
+function stopLyricSync() {
+
+if (lyricInterval) clearInterval(lyricInterval);
+
+lyricInterval = null;
+
+const oldActive = document.querySelector('.lyric-active');
+
+if (oldActive) { oldActive.classList.remove('lyric-active'); }
+
+}
+
+
+
+
+
+const tag = document.createElement('script');
+
+tag.src = "https://www.youtube.com/iframe_api";
+
+const firstScriptTag = document.getElementsByTagName('script')[0];
+
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+
+
+window.onYouTubeIframeAPIReady = function() { isPlayerReady = true; }
+
+
+
+// YENİ SES AÇMA MANTIĞI
+
+function tryUnmutePlayer() {
+
+if (player) {
+
+player.unMute();
+
+player.setVolume(100);
+
+unmuteBtn.style.display = 'none';
+
+console.log("Ses başarıyla açıldı.");
+
+}
+
+}
+
+
+
+unmuteBtn.addEventListener('click', tryUnmutePlayer);
+
+
+
+
+
+toggleVideoBtn.onclick = () => {
+
+const isActive = document.body.classList.contains('video-active');
+
+
+
+if (isActive) {
+
+playerContainer.style.opacity = 0;
+
+document.body.classList.remove('video-active');
+
+setTimeout(() => {
+
+playerContainer.style.display = 'none';
+
+}, 500);
+
+toggleVideoBtn.textContent = 'Video Göster';
+
+if (isPlaying) {
+
+startBassSimulation();
+
+startLyricSync();
+
+}
+
+} else {
+
+playerContainer.style.display = 'block';
+
+setTimeout(() => {
+
+playerContainer.style.opacity = 1;
+
+document.body.classList.add('video-active');
+
+}, 100);
+
+toggleVideoBtn.textContent = 'Video Gizle';
+
+stopBassSimulation();
+
+stopLyricSync();
+
+}
+
+}
+
+
+
+function handleSyncCommand(data) {
+
+if (!isPlayerReady) return;
+
+
+
+const wasPlaying = isPlaying;
+
+
+
+if (data.command === 'play') {
+
+document.body.classList.add('is-playing');
+
+isPlaying = true;
+
+if (!document.body.classList.contains('video-active')) {
+
+startBassSimulation();
+
+}
+
+if (!lyricInterval) startLyricSync();
+
+
+
+} else if (data.command === 'pause' || data.command === 'stop') {
+
+document.body.classList.remove('is-playing');
+
+isPlaying = false;
+
+stopBassSimulation();
+
+stopLyricSync();
+
+}
+
+
+
+if (!player || data.command === 'load') {
+
+if (data.lrc) {
+
+renderLyrics(parseLRC(data.lrc));
+
+}
+
+}
+
+
+
+if (!player && data.videoId) {
+
+player = new YT.Player('youtube-player', {
+
+height: '100%',
+
+width: '100%',
+
+videoId: data.videoId,
+
+playerVars: {
+
+'playsinline': 1,
+
+'autoplay': 1,
+
+'controls': 0,
+
+'mute': 1 // KRİTİK: Tarayıcı kısıtlamasını aşmak için baştan sessiz başlat
+
+},
+
+events: {
+
+'onReady': (event) => {
+
+if(data.progress) {
+
+event.target.seekTo(data.progress / 1000, true);
+
+}
+
+event.target.playVideo();
+
+
+// KRİTİK: Ses açma düğmesini göster
+
+unmuteBtn.style.display = 'block';
+
+
+
+startLyricSync();
+
+},
+
+}
+
+});
+
+toggleVideoBtn.style.display = 'block';
+
+}
+
+if (!player) return;
+
+
+
+switch (data.command) {
+
+case 'load':
+
+playerContainer.style.opacity = 0;
+
+// Video değişimini daha yumuşak hale getirmek için bekleme süresi
+
+setTimeout(() => {
+
+player.loadVideoById(data.videoId, data.progress / 1000);
+
+setTimeout(() => {
+
+playerContainer.style.opacity = 1;
+
+}, 50);
+
+
+
+renderSpotifyUI(data.trackTitle);
+
+}, 1200);
+
+
+
+toggleVideoBtn.style.display = 'block';
+
+break;
+
+
+
+case 'play':
+
+if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+
+player.playVideo();
+
+}
+
+const youtubeTime = player.getCurrentTime() * 1000;
+
+const difference = Math.abs(youtubeTime - data.progress);
+
+
+
+if (difference > 1000) {
+
+player.seekTo(data.progress / 1000, true);
+
+}
+
+if (wasPlaying) syncLyrics();
+
+break;
+
+
+
+case 'pause':
+
+if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+
+player.pauseVideo();
+
+}
+
+break;
+
+
+
+case 'stop':
+
+if (player) {
+
+player.stopVideo();
+
+}
+
+document.body.classList.remove('video-active');
+
+playerContainer.style.display = 'none';
+
+toggleVideoBtn.style.display = 'none';
+
+unmuteBtn.style.display = 'none'; // Durunca düğmeyi gizle
+
+renderNoTrack();
+
+break;
+
+}
+
+}
+
+
+
+function renderSpotifyUI(trackTitle) {
+
+const parts = trackTitle.split(' - ');
+
+songName.textContent = parts.length > 1 ? parts[1] : trackTitle;
+
+artist.textContent = parts.length > 1 ? parts[0] : 'Bilinmeyen Sanatçı';
+
+main.style.display = 'flex';
+
+}
+
+
+
+function updateProgress(current_ms, trackDuration_ms){
+
+if(!trackDuration_ms || trackDuration_ms === 0) return;
+
+progressBar.style.width=((current_ms/trackDuration_ms)*100)+'%';
+
+currentTimeDisplay.textContent = formatTime(current_ms);
+
+totalDurationDisplay.textContent = formatTime(trackDuration_ms);
+
+}
+
+
+
+function renderNoTrack() {
+
+songName.textContent='🎧 Şu anda müzik çalmıyor';
+
+artist.textContent='';
+
+main.style.display = 'flex';
+
+background.style.background = '#121212';
+
+currentTimeDisplay.textContent = '0:00';
+
+totalDurationDisplay.textContent = '0:00';
+
+stopBassSimulation();
+
+stopLyricSync();
+
+lrcData = [];
+
+lyricsContainer.innerHTML = `<div class="lyric-line" style="text-align:center;">Spotify'da müzik çalmıyor.</div>`;
+
+}
+
+
+
+socket.on('syncCommand', (data) => {
+
+handleSyncCommand(data);
+
+});
+
+
+
+async function fetchTrack(t){
+
+const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing',{
+
+headers:{Authorization:`Bearer ${t}`}
+
+});
+
+if(r.status===204) return null;
+
+if(r.status===401) {
+
+console.error("Tokenin süresi dolmuş veya geçersiz. Lütfen tekrar giriş yapın.");
+
+return null;
+
+}
+
+return await r.json();
+
+}
+
+
+
+window.onload = async ()=>{
+
+const params = new URLSearchParams(window.location.search);
+
+token = params.get('access_token');
+
+if(token){
+
+loginContainer.style.opacity='0';
+
+setTimeout(()=>{loginContainer.style.display='none';}, 500);
+
+main.style.display='flex';
+
+}
+
+
+albumImg.onload = () => {
+
+getDominantColor(albumImg);
+
+};
+
+
+
+async function updateTrack(){
+
+if(!token) {
+
+renderNoTrack();
+
+return;
+
+}
+
+const data = await fetchTrack(token);
+
+
+
+if(!data || !data.item){
+
+renderNoTrack();
+
+socket.emit('statusUpdate', null);
+
+return;
+
+}
+
+
+
+const albumUrl = data.item.album.images[0].url;
+
+albumImg.src = albumUrl;
+
+background.style.background = `url(${albumUrl}) no-repeat center center`;
+
+background.style.backgroundSize='cover';
+
+
+
+duration = data.item.duration_ms;
+
+updateProgress(data.progress_ms, duration);
+
+
+if (albumImg.complete && albumImg.naturalHeight !== 0) {
+
+getDominantColor(albumImg);
+
+}
+
+
+
+socket.emit('statusUpdate', data);
+
+}
+
+
+
+if (token) {
+
+updateTrack();
+
+setInterval(updateTrack, 2000);
+
+} else {
+
+loginContainer.style.display = 'flex';
+
+}
+
+}
+
+</script>
+
+</body>
+
+</html> 
