@@ -385,23 +385,19 @@ opacity: 0;
 transition: opacity 1.2s ease-in-out;
 
 }
-
-
-
 .video-active #main,
-
-.video-active #background,
-
 .video-active #equalizer-container,
-
-.video-active #lyrics-container {
-
+.video-active #lyrics-container { /* #background kaldırıldı */
 opacity: 0 !important;
-
 visibility: hidden;
-
 transition: opacity 0.5s ease, visibility 0.5s linear 0.5s;
+}
 
+/* YENİ: Video aktifken arka planın görünür kalmasını sağla */
+.video-active #background {
+    opacity: 1 !important; /* Opaklığı koru */
+    visibility: visible !important;
+    /* İsteğe bağlı: Arka plan blurlu kalmalı */
 }
 
 .video-active #youtube-player-container {
